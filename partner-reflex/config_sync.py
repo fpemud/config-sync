@@ -3,19 +3,20 @@
 
 import os
 from gi.repository import Gio
+from vcc_param import VccParam
 
 
 def get_reflex_list():
     return [
-        "fpemud-vcc",
+        "config-sync",
     ]
 
 
 def get_reflex_properties(name):
-    if name == "fpemud-vcc":
+    if name == "config-sync":
         return {
             "need-plugin": ["mesh"],
-            "protocol": "fpemud-vcc",
+            "protocol": "config-sync",
             "role": "p2p-endpoint",
         }
     else:
@@ -23,7 +24,7 @@ def get_reflex_properties(name):
 
 
 def get_reflex_object(fullname):
-    if fullname == "fpemud-vcc":
+    if fullname.startswith("config-sync."):
         return _PluginObject()
     else:
         assert False
@@ -32,22 +33,7 @@ def get_reflex_object(fullname):
 class _PluginObject:
 
     def __init__(self):
-        if os.getuid() == 0:
-            self.watchPathList = {
-                "/etc": [
-                    "skel",					# directories
-                    "ssl/certs",
-                    "mtab",					# files
-                    "UTC",
-                ]
-                "/var/lib/portage/world",
-            }
-            self.dataDir = "/var/cache/fpemud-vcc"
-        else:
-            self.watchPathList = {
-                
-            }
-            self.dataDir = "~/.cache/fpemud-vcc"
+        self.param = VccParam()
 
         self.monitor = None
         self.submDict = dict()
