@@ -1,0 +1,151 @@
+#!/usr/bin/python2
+# -*- coding: utf-8; tab-width: 4; indent-tabs-mode: t -*-
+
+import os
+import sys
+import argparse
+import lockfile
+from datetime import datetime
+sys.path.append('/usr/lib/config-sync')
+from vcc_util import VccUtil
+from vcc_util import VccRepo
+from vcc_param import VccParam
+
+def getArgParser():
+	parser = argparse.ArgumentParser()
+	subparsers = parser.add_subparsers()
+
+	parserStatus = subparsers.add_parser('status', help='Show repository status')
+	parserStatus.set_defaults(op="status")
+
+	parserDiff = subparsers.add_parser('diff', help='Show difference')
+	parserDiff.set_defaults(op="diff")
+
+	parserReset = subparsers.add_parser('reset', help='Reset changes')
+	parserReset.set_defaults(op="reset")
+
+	parserCommit = subparsers.add_parser('commit', help='Commit changes')
+	parserCommit.set_defaults(op="commit")
+
+	parserPull = subparsers.add_parser('pull', help='Pull changes')
+	parserPull.set_defaults(op="pull")
+
+	parserStoreMetadata = subparsers.add_parser('store-metadata', help='Store metadata')
+	parserStoreMetadata.set_defaults(op="metadata-store")
+
+	parserApplyMetadata = subparsers.add_parser('apply-metadata', help='Apply metadata')
+	parserApplyMetadata.set_defaults(op="metadata-apply")
+
+	return parser
+
+def checkCurDir(curDir, dataDir):
+	if curDir == dataDir:
+		return True
+	if os.path.dirname(curDir) == dataDir and VccRepo.is_repo(curDir):
+		return True
+	return False
+
+def sendCommit(curDir):
+	global param
+	pipeFile = os.path.join(param.runDir, "%s.fifo"%(os.path.basename(curDir)))
+	if os.path.exists(pipeFile):
+		with open(pipeFile, "wb") as f:
+			f.write("\x00")
+
+###############################################################################
+
+param = VccParam()
+
+# lock operation
+lock = lockfile.LockFile(param.dataDir)
+try:
+	lock.acquire(-1)
+except AlreadyLocked:
+	raise Exception("NCFS directory is being operated by other program, please try again")
+
+try:
+	# NCFS directory integrity check
+	for fb in os.listdir(param.dataDir):
+		f = os.path.join(param.dataDir, fb)
+		if not fb.startswith("."):
+			continue
+		if not VccRepo.is_repo(f):
+			raise Exception("integrity error, \"%s\" in NCFS directory is not a repo"%(fb))
+		repo = VccRepo(f)
+		if repo.is_dirty():
+			raise Exception("integrity error, \"%s\" in NCFS directory is dirty"%(fb))
+
+	# do operation
+	args = getArgParser().parse_args()
+	if args.op == "status":
+		if param.curDir == param.dataDir:
+			fblist = os.listdir(param.curDir)
+			if len(fblist) == 0:
+				print "No repository in NCFS directory."
+			else:
+				for fb in fblist:
+					f = os.path.join(param.curDir, fb)
+					if not fb.startswith("."):
+						repo = VccRepo(f)
+						s = repo.get_status()
+						if s == VccRepo.STATUS_CLEAN:
+							statusStr = "CLEAN"
+						elif s == VccRepo.STATUS_CONFLICT:
+							statusStr = "CONFLICT"
+						elif s == VccRepo.STATUS_DIRTY:
+							statusStr = "DIRTY"
+						elif s == VccRepo.STATUS_METADATA_DIRTY:
+							statusStr = "METADATA_DIRTY"
+						else:
+							assert False
+
+						print "Repository \"%s\":"%(fb)
+						print "  Status: %s"%(statusStr)
+						print ""
+		else:
+			repo = VccRepo(param.curDir)
+			if repo.get_status() == VccRepo.STATUS_METADATA_DIRTY:
+				raise Exception("repository is in METADATA_DIRTY status, please run \"config-sync store-metadata\" first")
+			repo.status()
+	elif args.op == "diff":
+		if os.path.dirname(param.curDir) != param.dataDir:
+			raise Exception("you must run this command under NCFS repository directory")
+		repo = VccRepo(param.curDir)
+		if repo.get_status() == VccRepo.STATUS_METADATA_DIRTY:
+			raise Exception("repository is in METADATA_DIRTY status, please run \"config-sync store-metadata\" first")
+		repo.diff()
+	elif args.op == "reset":
+		if os.path.dirname(param.curDir) != param.dataDir:
+			raise Exception("you must run this command under NCFS repository directory")
+		repo = VccRepo(param.curDir)
+		repo.reset()
+	elif args.op == "commit":
+		if os.path.dirname(param.curDir) != param.dataDir:
+			raise Exception("you must run this command under NCFS repository directory")
+		repo = VccRepo(param.curDir)
+		if not repo.is_dirty():
+			raise Exception("nothing to commit")
+		if repo.get_status() == VccRepo.STATUS_METADATA_DIRTY:
+			raise Exception("repository is in METADATA_DIRTY status, please run \"config-sync store-metadata\" first")
+		repo.commit("Commit at %s"%(datetime.now()))
+		sendCommit(param.curDir)
+	elif args.op == "pull":
+		if os.path.dirname(param.curDir) != param.dataDir:
+			raise Exception("you must run this command under NCFS repository directory")
+		repo = VccRepo(param.curDir)
+		repo.pull()								# no error 
+	elif args.op == "metadata-store":
+		if os.path.dirname(param.curDir) != param.dataDir:
+			raise Exception("you must run this command under NCFS repository directory")
+		repo = VccRepo(param.curDir)
+		repo.metadata_store()
+	elif args.op == "metadata-apply":
+		if os.path.dirname(param.curDir) != param.dataDir:
+			raise Exception("you must run this command under NCFS repository directory")
+		repo = VccRepo(param.curDir)
+		repo.metadata_apply()
+	else:
+		raise Exception("Invalid sub command")
+finally:
+	lock.release()
+

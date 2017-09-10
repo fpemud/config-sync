@@ -1,0 +1,48 @@
+fpemud-vcc
+====================
+
+fpemud-vcc - version control system for fpemud's nexus configuration file storage (NCFS).
+
+It is a git wrapper, but can track metadata and empty directories.
+
+Usage:
+  fpemud-vcc status
+     * Counterpart of "git status"
+     * Show status of all the repositories when run in NCFS directory
+
+  fpemud-vcc diff
+     * Counterpart of "git diff"
+
+  fpemud-vcc reset
+     * Counterpart of "git reset"
+
+  fpemud-vcc commit
+     * Counterpart of "git commit"
+
+  fpemud-vcc pull
+     * Counterpart of "git pull"
+
+  fpemud-vcc store-metadata
+     * Persist metdata and empty directories
+
+  fpemud-vcc apply-metadata
+     * Restore metdata and empty directories
+
+Directory structure:
+     fpemud's NCFS directory
+       |-- HOSTNAME1
+       |     |-- .vcc          (counterpart of .git)
+       |     |-- .metadata     (metadata and empty directory information)
+       |     |-- ...           (files)
+       |-- .HOSTNAME1
+       |     |-- .vcc
+       |     |-- .metadata
+       |     |-- ...
+       |-- HOSTNAME2
+       |     |-- ...
+       |-- .HOSTNAME2
+             |-- ...
+
+Notes:
+  The whole NCFS directory is owned by root so only root can run this tool.
+
