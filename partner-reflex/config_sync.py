@@ -3,6 +3,7 @@
 
 import os
 from gi.repository import Gio
+sys.path.append('/usr/lib/config-sync')
 from vcc_param import VccParam
 
 
@@ -39,6 +40,11 @@ class _PluginObject:
         self.submDict = dict()
 
     def on_init(self):
+		if not os.path.exists(self.param.dataDir):
+			os.makedirs(self.param.dataDir)
+
+
+
 		self._sendToServer()
 		self._addMonitors()
 
@@ -48,6 +54,22 @@ class _PluginObject:
 		if self.sendTimer is not None:
 			GLib.source_remove(self.sendTimer)
 			self.sendTimer = None
+
+	def _ensureLocalDir(self):
+		localDir = os.path.join(self.param.dataDir, "localhost"):
+		if not os.path.exists(self.param.localDir):
+			VccRepo.create_repo(localDir)
+
+
+
+
+
+
+
+
+
+
+
 
     def on_receive_message_from_peer(self, message):
         obj = json.loads(message)

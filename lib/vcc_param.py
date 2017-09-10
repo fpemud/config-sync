@@ -8,6 +8,9 @@ import pwd
 class VccParam:
 
 	def __init__(self):
+        self.libDir = "/usr/lib/config-sync"
+        self.libAppsDir = os.path.join(self.libDir, "apps")
+
 		if os.getuid() == 0:
 			self.dataDir = "/var/cache/config-sync"
 		else:
