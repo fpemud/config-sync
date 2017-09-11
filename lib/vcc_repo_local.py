@@ -48,10 +48,17 @@ class VccLocalRepoManager:
             finally:
                 sys.path.remove(self.param.libAppsDir)
 
-    def isRepoExists(self):self.
+    def dispose(self):
+        # assert offline
+        pass
+
+    def isRepoExists(self):
         return os.path.exists(self.myDataDir)
 
-    def bringRepoOnline(self):
+    def getRepoObj(self):
+        return VccRepo(self.myDataDir)
+
+    def bringRepoOnline(self, change_callback):
         # monitor cfg files
         pass
 
@@ -72,9 +79,6 @@ class VccLocalRepoManager:
 
     def bringRepoOffline(self):
         pass
-
-    def on_change(self):
-        assert False
 
 
 

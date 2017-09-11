@@ -7,32 +7,135 @@ from vcc_util import VccUtil
 
 class VccRepo:
 
-	def __init__(self, dirName):
-		assert os.path.isabs(dirName)
-		self.dirName = dirName
+	def __init__(self, name, dir_name, change_callback, pull_complete_callback):
+		assert os.path.exists(dir_name)
+		self.name = name
+		self.dirName = dir_name
+		self.changeCallback = change_callback
+		self.pullCompleteCallback = pull_complete_callback
 
-	def commit(self):
+		self.serverProc = None
+		self.pullTaskRunner = TaskRunner(None, None, self._onPullTaskRun, self._onPullTaskRunnerGoIdle)
+
+	def dispose(self):
+		assert self.serverProc is None
+		self.pullTaskRunner.stop()
+		self.pullTaskRunner = None
+
+	def pull_from(self, peer_name, ip, port):
+		self.pullThread.add_task(peer_name, ip, port)
+
+	def start_server(self):
+		port = getFreeSocketPort("tcp")
+
+        cmd = "/usr/bin/git"
+		cmd += " --export-all"        self.bStop = False
+
+		cmd += " --strict-paths"
+		cmd += " --export-all"
+		# cmd += " --listen=%s"				# fixme, should only listen on one address
+		cmd += " --port=%d" % (port)
+		cmd += " --base-path=%s" % (self.dirName)
+		cmd += " \"%s\"" % (self.dirName)
+        self.serverProc = subprocess.Popenpull_complete_callback(cmd)
+		
+		return port
+
+	def stop_server(self):
+		self.serverProc.terminate()
+		self.serverProc.wait()
+		self.serverProc = None
+
+    def start_monitor(self, change_callback):
+        pass
+
+    def stop_monitor(self):
+        pass
+
+	def _onPullTaskRun(self, dummy, peer_name, ip, port):
+		_callGit(self.dir_name, "remote add peer git://%s:%d" % (ip, port), "stdout")
+		while True:
+			rc, out = _callGit(self.repoObj.dir_name, "pull peer master", "retcode+stdout")
+			if rc == 0:
+				break
+			print(out)			# fixme
+			time.sleep(10)
+		_callGit(self.repoObj.dir_name, "remote remove peer", "stdout")
+
+	def _onPullTaskRunnerGoIdle(self, dummy):
+		if self.pullCompleteCallback is not None:
+			self.pullCompleteCallback()
+
+	def _onChange(self, monitor, file, other_file, event_type):
+		if self.pullTaskRunner.is_running():
+			return
+        if event_type not in _validEvent():
+			return
 		_callGit(self.dirName, "add .", "stdout")
 		_callGit(self.dirName, "commit -a -m \"%s\"" % ("none"), "stdout")
+		self.change_callback()
+
+
+class _PullThread(threading.Thread):
+
+	def __init__(self, repoObj):
+		self.repoObj = repoObj
+		self.pullQueue = queue.Queue()
+		self.pullStop = False
+		self.pullCompleteIdleHandler = None
+
+	def add(peer_name, ip, port):
+		self.pullQueue.put((peer_name, ip, port))
+
+	def stop(self):
+		self.pullQueue.put(None)
+		self.pullStop = None
+
+	def run(self):
+		while not self.repoObj.pullStop:
+			data = self.pullQueue.get()
+			if data is None:
+				break
+			peer_name, ip, port = data
+
+			try:
+			finally:
+				self.pullQueue.task_done()
+				if len(self.pullQueue) == 0 and self.repoObj.pullCompleteIdleHandler is None:
+					self.repoObj.pullCompleteIdleHandler = GLib.idle_add(self._pullCompleteIdleCallback)
+
+	def _pullCompleteIdleCallback(self):
+		if self.repoObj.pullCompleteCallback is not None:
+			self.repoObj.pullCompleteCallback(self.repoObj.name)
 
 
 
+		self.repoObj.pullCompleteIdleHandler = None
+		return False
 
 
-
-
-def _callGit(dirName, command, shellMode=""):
-    gitDir = os.path.join(dirName, ".git")
-    cmdStr = "/bin/git --git-dir=\"%s\" --work-tree=\"%s\" %s"%(gitDir, dirName, command)
+def _callGit(dir_name, command, shellMode=""):
+    gitDir = os.path.join(dir_name, ".git")
+    cmdStr = "/bin/git --git-dir=\"%s\" --work-tree=\"%s\" %s"%(gitDir, dir_name, command)
     return VccUtil.shell(cmdStr, shellMode)
 
-def _vcc2git(dirName):
-    os.rename(os.path.join(dirName, ".vcc"), os.path.join(dirName, ".git"))
+def _validEvent():
+	return [
+		Gio.FileMonitorEvent.CHANGES_DONE_HINT,
+		Gio.FileMonitorEvent.DELETED,
+		Gio.FileMonitorEvent.CREATED,
+		Gio.FileMonitorEvent.ATTRIBUTE_CHANGED
+	]
 
-def _git2vcc(dirName):
-    if not os.path.exists(os.path.join(dirName, ".git")):
-        return
-    os.rename(os.path.join(dirName, ".git"), os.path.join(dirName, ".vcc"))
+
+
+
+
+
+
+
+
+
 
 
 
@@ -44,52 +147,16 @@ class VccRepo:
 	STATUS_METADATA_DIRTY = 3
 
 	@staticmethod
-	def create_repo(dirName):
-		assert os.path.isabs(dirName)
-		assert os.path.isdir(dirName)
-		assert VccUtil.isDirEmpty(dirName)
+	def create_repo(dir_name):
+		assert os.path.isabs(dir_name)
+		assert os.path.isdir(dir_name)
+		assert VccUtil.isDirEmpty(dir_name)
 
-		VccRepo._callGit(dirName, "init", "stdout")
-		VccUtil.touchFile(os.path.join(dirName, ".metadata"))
-		VccRepo._callGit(dirName, "add .", "stdout")
-		VccRepo._callGit(dirName, "commit -a -m \"first commit of %s\" "%(dirName), "stdout")
-		VccRepo._git2vcc(dirName)
-
-	@staticmethod
-	def is_repo(dirName):
-		assert os.path.isabs(dirName)
-		assert os.path.isdir(dirName)
-
-		if not os.path.isdir(os.path.join(dirName, ".vcc")):
-			return False
-		if not os.path.exists(os.path.join(dirName, ".metadata")):
-			return False
-		return True
-
-	@staticmethod
-	def get_ignore_list():
-		return [ ".vcc", ".metadata" ]
-
-	def __init__(self, dirName):
-		assert os.path.isabs(dirName)
-		assert VccRepo.is_repo(dirName)
-		self.dirName = dirName
-
-	def bind_to(self, remoteDirName):
-		assert os.path.isabs(remoteDirName)
-		assert VccRepo.is_repo(remoteDirName)
-
-		try:
-			VccRepo._vcc2git(self.dirName)
-			VccRepo._vcc2git(remoteDirName)
-
-			self._callGit(self.dirName, "remote add origin \"%s\""%(remoteDirName), "stdout")
-			self._callGit(self.dirName, "fetch", "stdout")
-			self._callGit(self.dirName, "branch --set-upstream-to=origin/master master", "stdout")
-			self._callGit(self.dirName, "pull --no-edit", "stdout")
-		finally:
-			VccRepo._git2vcc(remoteDirName)
-			VccRepo._git2vcc(self.dirName)
+		VccRepo._callGit(dir_name, "init", "stdout")
+		VccUtil.touchFile(os.path.join(dir_name, ".metadata"))
+		VccRepo._callGit(dir_name, "add .", "stdout")
+		VccRepo._callGit(dir_name, "commit -a -STATUS_CONFLICTm \"first commit of %s\" "%(dir_name), "stdout")
+		VccRepo._git2vcc(dir_name)
 
 	def get_status(self):
 		try:
@@ -106,7 +173,7 @@ class VccRepo:
 			if re.search("^Untracked files:$", ret, re.M) is not None:
 				return self.STATUS_DIRTY
 			if re.search("^Changes not staged for commit:$", ret, re.M) is not None:
-				return self.STATUS_DIRTY
+				return self.STATUS_DIRTYSTATUS_CONFLICT
 			if re.search("^All conflicts fixed but you are still merging.$", ret, re.M) is not None:
 				return self.STATUS_DIRTY
 
@@ -125,7 +192,7 @@ class VccRepo:
 			VccRepo._vcc2git(self.dirName)
 			assert self._compareMetaData()
 			self._callGit(self.dirName, "add .", "stdout")
-			self._callGit(self.dirName, "status")
+			self._callGit(self.dirName, "statuSTATUS_CONFLICTs")
 		finally:
 			VccRepo._git2vcc(self.dirName)
 
@@ -139,17 +206,17 @@ class VccRepo:
 			VccRepo._git2vcc(self.dirName)
 
 	def pull(self):
-		remoteDirName = None
+		remotedir_name = None
 		try:
 			VccRepo._vcc2git(self.dirName)
-			remoteDirName = self._getRemoteDir()
-			VccRepo._vcc2git(remoteDirName)
+			remotedir_name = self._getRemoteDir()
+			VccRepo._vcc2git(remotedir_name)
 
 			self._callGit(self.dirName, "pull --no-commit", "retcode+stdout")
 			self._applyMetaData()
 		finally:
-			if remoteDirName is not None:
-				VccRepo._git2vcc(remoteDirName)
+			if remotedir_name is not None:
+				VccRepo._git2vcc(remotedir_name)
 			VccRepo._git2vcc(self.dirName)
 
 	def reset(self):
@@ -223,7 +290,7 @@ class VccRepo:
 			elif tname == "dir":
 				if not os.path.exists(f):
 					# create directory, but don't modify mtime of parent directory
-					pdir = os.path.dirname(f)
+					pdir = os.path.dir_name(f)
 					if pdir != self.dirName:
 						tmtime = os.path.getmtime(pdir)
 					os.mkdir(f)
@@ -256,12 +323,12 @@ class VccRepo:
 			cfgObj.write(sf)
 			return f.read() == sf.getvalue()
 
-	def _storeMetaDataImpl(self, dirName, pdirName, ignoreList, cfgObj):
-		"""dirName is absolute path of directory, pdirName is relative path of directory"""
+	def _storeMetaDataImpl(self, dir_name, pdir_name, ignoreList, cfgObj):
+		"""dir_name is absolute path of directory, pdir_name is relative path of directory"""
 
-		for fb in sorted(os.listdir(dirName)):
-			f = os.path.join(dirName, fb)
-			fr = os.path.join(pdirName, fb)
+		for fb in sorted(os.listdir(dir_name)):
+			f = os.path.join(dir_name, fb)
+			fr = os.path.join(pdir_name, fb)
 			if any(x for x in ignoreList if fnmatch.fnmatch(f, x)):
 				continue
 			assert VccUtil.isTrival(f)

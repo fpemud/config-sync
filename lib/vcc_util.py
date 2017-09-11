@@ -14,7 +14,34 @@ import pyinotify
 import ConfigParser
 from StringIO import StringIO
 
+
 class VccUtil:
+
+    @staticmethod
+    def getFreeSocketPort(portType):
+        if portType == "tcp":
+            stlist = [socket.SOCK_STREAM]
+        elif portType == "udp":
+            stlist = [socket.SOCK_DGRAM]
+        elif portType == "tcp+udp":
+            stlist = [socket.SOCK_STREAM, socket.SOCK_DGRAM]
+        else:
+            assert False
+
+        for port in range(10000, 65536):
+            bFound = True
+            for sType in stlist:
+                s = socket.socket(socket.AF_INET, sType)
+                try:
+                    s.bind((('', port)))
+                except socket.error:
+                    bFound = False
+                finally:
+                    s.close()
+            if bFound:
+                return port
+
+        raise Exception("no valid port")
 
     @staticmethod
     def getLogicalCwd():
@@ -452,6 +479,68 @@ class VccUtil:
             userId = uidDict.get(userId, userId)
             groupId = gidDict.get(groupId, groupId)
             os.lchown(f, userId, groupId)
+
+
+class TaskRunner(threading.Thread):
+
+	def __init__(self, logger, process_callback, complete_callback):
+        self.logger = logger
+        self.process_callback = process_callback
+        self.complete_callback = complete_callback
+
+		self.taskQueue = queue.Queue()
+		self.bStop = False
+		self.completeIdleHandler = None
+        self.retList = []
+
+        self.start()
+
+    def is_running(self):
+        return len(self.taskQueue) > 0 or self.completeIdleHandler is not None
+
+	def add_task(*args):
+		self.taskQueue.put(args)
+
+	def stop(self):
+		self.bStop = True
+		self.taskQueue.put(None)
+        self.join()
+        if self.completeIdleHandler is not None:
+            GLib.source_remove(self.completeIdleHandler)
+            self.completeIdleHandler = None
+
+	def run(self):
+		while not self.bStop:
+			try:
+                args = self.taskQueue.get()
+                if args is None:
+                    break
+                ret = self.process_callback(*args)
+                retList.append(ret)
+            except:
+                if self.logger is not None:
+                    self.logger.error("Error occured in task runner.", exc_info=True)
+			finally:
+				if len(self.taskQueue) == 1 and self.completeIdleHandler is None:
+					self.completeIdleHandler = GLib.idle_add(self._pullCompleteIdleCallback)
+				self.taskQueue.task_done()
+
+	def _pullCompleteIdleCallback(self):
+		self.completeIdleHandler = None
+		if self.complete_callback is not None:
+			self.complete_callback(self.retList)
+		return False
+
+
+
+
+
+
+
+
+
+
+
 
 class VccRepo:
 

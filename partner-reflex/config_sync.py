@@ -34,8 +34,8 @@ class _PluginObject:
         if not os.path.exists(self.param.dataDir):
             os.makedirs(self.param.dataDir)
         self.mobj = VccLocalRepoManager(self.param)
-        self.mobj.repoOnline()
+        self.mobj.bringRepoOnline()
 
     def on_fini(self):
-        self.mobj.repoOffline()
+        self.mobj.bringRepoOffline()
 
