@@ -11,49 +11,83 @@ class VccLocalRepo(VccRepo):
         self.param = param
 
         # init repo
-		self.targetDir = os.path.join(dataDir, "localhost")
-		if not os.path.exists(self.targetDir):
-            _callGit(self.targetDir, "init", "stdout")
-        super().__init__(self.targetDir)
+		targetDir = os.path.join(dataDir, "localhost")
+		if not os.path.exists(targetDir):
+            _callGit(targetDir, "init", "stdout")
+        super().__init__(targetDir)
 
         # load application data
-        self.appDataList = []
-        for fn in os.listdir(self.param.libAppsDir):
-            if not fn.endswith(".py"):
-                continue
-            obj = _AppData(os.path.join(self.param.libAppsDir, fn), (os.getuid() == 0))
-            self.appDataList.append(obj)
+        self.appObjDict = []
+        if True:
+            if os.getuid() == 0:
+                sstr = "System"
+            else:
+                sstr = "User"
+            for fn in os.listdir(self.param.libAppsDir):
+                if not fn.endswith(".py"):
+                    continue
+                bn = os.path.basename(fn)[:-3]
+                sys.path.append(self.param.libAppsDir)
+                try:
+                    exec("from %s import %sObject" % (bn, sstr))
+                    obj = eval("%sObject()" % (sstr))
+                    if os.getuid() == 0:
+                        obj._to_sync_etc_dir = _to_sync_etc_dir
+                        obj._from_sync_etc_dir = _from_sync_etc_dir
+                        obj._to_sync_etc_files = _to_sync_etc_files
+                        obj._from_sync_etc_files = _from_sync_etc_files
+                    else:
+                        pass
+                    self.appObjDict[bn] = obj
+                except Exception as e:
+                    print(e.__class__.__name__)     # fixme
+                finally:
+                    sys.path.remove(self.param.libAppsDir)
 
         # monitor cfg files
         pass
 
         # init target directory if needed
+        for obj in self.appObjDict.values():
+            obj.convertCfgToNcfs()
+
+
         pass
 
         # monitor target directory
         pass
 
 
-class _AppData:
 
-    def __init__(self, filename, systemOrUser):
-        assert filename.endswith(".py")
-        dn = os.path.dirname(filename)
-        bn = os.path.basename(filename)[:-3]
 
-        sys.path.append(dn)
-        try:
-            if systemOrUser:
-                exec("from %s import SystemObject" % (bn))
-                obj = eval("SystemObject()")
-            else:
-                exec("from %s import UserObject" % (bn))
-                obj = eval("UserObject()")
-        finally:
-            sys.path.remove(dn)
 
-        self.appName = bn
-        self.cfgPatternList = obj.cfg_pattern_list
-        self.ncfsPatternList = obj.ncfs_pattern_list
-        self.convertCfgToNcfs = obj.convert_cfg_to_ncfs
-        self.convertNcfsToCfg = obj.convert_ncfs_to_cfg
+
+def _to_sync_etc_dir(obj, dirname, dataDir):
+    dataEtcDir = os.path.join(dataDir, "etc")
+    dataEtcTargetDir = dirname.replace("/etc/", "")
+
+    if os.path.exists(dirname):
+        VccUtil.forceDelete(dataEtcTargetDir)
+        VccUtil.ensureDir(dataEtcDir)
+        subprocess.check_call(["/bin/cp", "-r", dirname, dataEtcDir])
+    else:
+        VccUtil.forceDelete(dataEtcTargetDir)
+        VccUtil.deleteDirIfEmpty(dataEtcDir)
+
+
+def _from_sync_etc_dir(obj, dirname, dataDir):
+    dataEtcDir = os.path.join(dataDir, "etc")
+    dataEtcTargetDir = dirname.replace("/etc/", "")
+
+    if os.path.exists(dataEtcTargetDir):
+        subprocess.check_call(["/bin/cp", "-r", dataEtcTargetDir, "/etc"])
+    else:
+        VccUtil.forceDelete(dirname)
+
+
+def _to_sync_etc_files(obj, file_pattern, dataDir):
+    pass
+
+def _from_sync_etc_files(obj, file_pattern, dataDir):
+    pass
+

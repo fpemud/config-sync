@@ -9,6 +9,7 @@ class VccRepo:
 
 	def __init__(self, dirName):
 		assert os.path.isabs(dirName)
+		self.dirName = dirName
 
 
 

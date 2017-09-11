@@ -2,36 +2,32 @@
 # -*- coding: utf-8; tab-width: 4; indent-tabs-mode: t -*-
 
 class SystemObject:
-   
+    
+    def cfg_pattern_list(self):
+        return [
+            "/etc/partner",
+        ]
+
+    def ncfs_pattern_list(self):
+        return [
+            "etc/partner",
+        ]
+
+    def convert_to(self, dataDir):
+        self._to_sync_etc_dir("/etc/partner", dataDir)
+
+    def convert_from(self, dataDir):
+        self._from_sync_etc_dir("/etc/partner", dataDir)
 
 
-def system_cfg_pattern():
-    pass
 
 
-def system_ncfs_pattern():
-    pass
 
+class UserObject:
+        self.cfg_pattern_list = [
+            ".config/partner"
+        ]
+        self.ncfs_pattern_list = [
+            "partner"
+        ]
 
-def system_convert_cfg_to_ncfs(ncfs_dir):
-    pass
-
-
-def system_convert_ncfs_to_cfg(ncfs_dir):
-    pass
-
-
-def user_cfg_pattern():
-    pass
-
-
-def user_ncfs_pattern():
-    pass
-
-
-def user_convert_cfg_to_ncfs(ncfs_dir):
-    pass
-
-
-def user_convert_ncfs_to_cfg(ncfs_dir):
-    pass
