@@ -16,7 +16,6 @@ class VccParam:
 		else:
 			self.dataDir = "/home/%s/.cache/config-sync" % (pwd.getpwuid(os.getuid())[0]))
 
-
         if os.getuid() == 0:
             self.watchPathList = {
                 "/etc": [

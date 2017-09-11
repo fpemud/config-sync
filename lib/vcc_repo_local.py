@@ -10,6 +10,14 @@ class VccLocalRepo(VccRepo):
 	def __init__(self, param, dataDir):
         self.param = param
 
+        if os.getuid() != 0:
+            sstr = "System"
+            userDir = None
+        else:
+            sstr = "User"
+            userDir = os.path.join("/home", pwd.getpwuid(os.getuid())[0])
+        myDataDir = os.path.join(self.param.dataDir, "localhost")
+
         # init repo
 		targetDir = os.path.join(dataDir, "localhost")
 		if not os.path.exists(targetDir):
@@ -18,48 +26,44 @@ class VccLocalRepo(VccRepo):
 
         # load application data
         self.appObjDict = []
-        if True:
-            if os.getuid() == 0:
-                sstr = "System"
-            else:
-                sstr = "User"
-            for fn in os.listdir(self.param.libAppsDir):
-                if not fn.endswith(".py"):
-                    continue
-                bn = os.path.basename(fn)[:-3]
-                sys.path.append(self.param.libAppsDir)
-                try:
-                    exec("from %s import %sObject" % (bn, sstr))
-                    obj = eval("%sObject()" % (sstr))
-                    if os.getuid() == 0:
-                        obj._to_sync_etc_dir = _sys_to_sync_etc_dir
-                        obj._from_sync_etc_dir = _sys_from_sync_etc_dir
-                        obj._to_sync_etc_files = _sys_to_sync_etc_files
-                        obj._from_sync_etc_files = _sys_from_sync_etc_files
-                    else:
-                        obj._to_sync_dir_in_home = _usr_to_sync_dir_in_home
-                        obj._from_sync_dir_in_home = _usr_from_sync_dir_in_home
-                        obj._to_sync_files_in_home = _usr_to_sync_files_in_home
-                        obj._from_sync_files_in_home = _usr_from_sync_files_in_home
-                        obj._to_sync_dir_in_config = _usr_to_sync_dir_in_config
-                        obj._from_sync_dir_in_config = _usr_from_sync_dir_in_config
-                        obj._to_sync_files_in_config = _usr_to_sync_files_in_config
-                        obj._from_sync_files_in_config = _usr_from_sync_files_in_config
-                    self.appObjDict[bn] = obj
-                except Exception as e:
-                    print(e.__class__.__name__)     # fixme
-                finally:
-                    sys.path.remove(self.param.libAppsDir)
+        for fn in os.listdir(self.param.libAppsDir):
+            if not fn.endswith(".py"):
+                continue
+            bn = os.path.basename(fn)[:-3]
+            sys.path.append(self.param.libAppsDir)
+            try:
+                exec("from %s import %sObject" % (bn, sstr))
+                obj = eval("%sObject()" % (sstr))
+                if os.getuid() == 0:
+                    obj._to_sync_etc_dir = _sys_to_sync_etc_dir
+                    obj._from_sync_etc_dir = _sys_from_sync_etc_dir
+                    obj._to_sync_etc_files = _sys_to_sync_etc_files
+                    obj._from_sync_etc_files = _sys_from_sync_etc_files
+                else:
+                    obj._to_sync_dir_in_home = _usr_to_sync_dir_in_home
+                    obj._from_sync_dir_in_home = _usr_from_sync_dir_in_home
+                    obj._to_sync_files_in_home = _usr_to_sync_files_in_home
+                    obj._from_sync_files_in_home = _usr_from_sync_files_in_home
+                    obj._to_sync_dir_in_config = _usr_to_sync_dir_in_config
+                    obj._from_sync_dir_in_config = _usr_from_sync_dir_in_config
+                    obj._to_sync_files_in_config = _usr_to_sync_files_in_config
+                    obj._from_sync_files_in_config = _usr_from_sync_files_in_config
+                self.appObjDict[bn] = obj
+            except Exception as e:
+                print(e.__class__.__name__)     # fixme
+            finally:
+                sys.path.remove(self.param.libAppsDir)
 
         # monitor cfg files
         pass
 
-        # init target directory if needed
+        # init target directory
+        VccUtil.ensureDir(myDataDir)
         for obj in self.appObjDict.values():
-            obj.convertCfgToNcfs()
-
-
-        pass
+            if userDir is None:
+                obj.convert_to(myDataDir)
+            else:
+                obj.convert_to(userDir, myDataDir)
 
         # monitor target directory
         pass
