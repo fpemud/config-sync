@@ -59,34 +59,34 @@ class UserObject:
 
     ## conveninent functions for you ##########################################
 
-    def _to_sync_dir_in_home(self, dirname, dataDir):
+    def _to_sync_dir_in_home(self, homeDir, dirname, dataDir):
         # dirname is relative path based on "~"
         pass
 
-    def _from_sync_dir_in_home(self, dirname, dataDir):
+    def _from_sync_dir_in_home(self, homeDir, dirname, dataDir):
         # dirname is relative path based on "~"
         pass
 
-    def _to_sync_files_in_home(self, file_pattern, dataDir):
+    def _to_sync_files_in_home(self, homeDir, file_pattern, dataDir):
         # file_pattern is relative path based on "~"
         pass
 
-    def _from_sync_files_in_home(self, file_pattern, dataDir):
+    def _from_sync_files_in_home(self, homeDir, file_pattern, dataDir):
         # file_pattern is relative path based on "~"
         pass
 
-    def _to_sync_dir_in_config(self, dirname, dataDir):
-        # dirname is relative path based on "~/.config"
+    def _to_sync_dir_in_config(self, homeDir, dirname, dataDir):
+        # dirname is relative path based on "~", prefixed with "~/.config"
         pass
 
-    def _from_sync_dir_in_config(self, dirname, dataDir):
-        # dirname is relative path based on "~/.config"
+    def _from_sync_dir_in_config(self, homeDir, dirname, dataDir):
+        # dirname is relative path based on "~", prefixed with "~/.config"
         pass
 
-    def _to_sync_files_in_config(self, file_pattern, dataDir):
-        # file_pattern is relative path based on "~/.config"
+    def _to_sync_files_in_config(self, homeDir, file_pattern, dataDir):
+        # file_pattern is relative path based on "~", prefixed with "~/.config"
         pass
 
-    def _from_sync_files_in_config(self, file_pattern, dataDir):
-        # file_pattern is relative path based on "~/.config"
+    def _from_sync_files_in_config(self, homeDir, file_pattern, dataDir):
+        # file_pattern is relative path based on "~", prefixed with "~/.config"
         pass
