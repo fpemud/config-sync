@@ -11,6 +11,10 @@ class VccRepo:
 		assert os.path.isabs(dirName)
 		self.dirName = dirName
 
+	def commit(self):
+		_callGit(self.dirName, "add .", "stdout")
+		_callGit(self.dirName, "commit -a -m \"%s\""%(message), "stdout")
+
 
 
 
@@ -131,15 +135,6 @@ class VccRepo:
 			assert self._compareMetaData()
 			self._callGit(self.dirName, "add .", "stdout")
 			self._callGit(self.dirName, "diff")
-		finally:
-			VccRepo._git2vcc(self.dirName)
-
-	def commit(self, message):
-		try:
-			VccRepo._vcc2git(self.dirName)
-			assert self._compareMetaData()
-			self._callGit(self.dirName, "add .", "stdout")
-			self._callGit(self.dirName, "commit -a -m \"%s\""%(message), "stdout")
 		finally:
 			VccRepo._git2vcc(self.dirName)
 
