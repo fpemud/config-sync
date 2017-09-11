@@ -5,10 +5,11 @@ import os
 import sys
 
 
-class VccLocalRepo(VccRepo):
+class VccLocalRepoManager:
 
-	def __init__(self, param, dataDir):
+    def __init__(self, param):
         self.param = param
+        self.myDataDir = os.path.join(self.param.dataDir, "localhost")
 
         if os.getuid() != 0:
             sstr = "System"
@@ -16,13 +17,6 @@ class VccLocalRepo(VccRepo):
         else:
             sstr = "User"
             userDir = os.path.join("/home", pwd.getpwuid(os.getuid())[0])
-        myDataDir = os.path.join(self.param.dataDir, "localhost")
-
-        # init repo
-		targetDir = os.path.join(dataDir, "localhost")
-		if not os.path.exists(targetDir):
-            _callGit(targetDir, "init", "stdout")
-        super().__init__(targetDir)
 
         # load application data
         self.appObjDict = []
@@ -54,19 +48,33 @@ class VccLocalRepo(VccRepo):
             finally:
                 sys.path.remove(self.param.libAppsDir)
 
+    def isRepoExists(self):self.
+        return os.path.exists(self.myDataDir)
+
+    def bringRepoOnline(self):
         # monitor cfg files
         pass
 
-        # init target directory
-        VccUtil.ensureDir(myDataDir)
+        # create repo if not exists
+        if not os.path.exists(self.myDataDir):
+            os.makedirs(self.myDataDir)
+            _callGit(self.myDataDir, "init", "stdout")
+
+        # flush repo
         for obj in self.appObjDict.values():
             if userDir is None:
-                obj.convert_to(myDataDir)
+                obj.convert_to(self.myDataDir)
             else:
-                obj.convert_to(userDir, myDataDir)
+                obj.convert_to(userDir, self.myDataDir)
 
         # monitor target directory
         pass
+
+    def bringRepoOffline(self):
+        pass
+
+    def on_change(self):
+        assert False
 
 
 

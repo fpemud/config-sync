@@ -13,7 +13,7 @@ class VccRepo:
 
 	def commit(self):
 		_callGit(self.dirName, "add .", "stdout")
-		_callGit(self.dirName, "commit -a -m \"%s\""%(message), "stdout")
+		_callGit(self.dirName, "commit -a -m \"%s\"" % ("none"), "stdout")
 
 
 
