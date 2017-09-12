@@ -549,6 +549,58 @@ class TaskRunner(threading.Thread):
             return False
 
 
+class FileMonitor:
+
+    def __init__(self, pattern_list, change_callback):
+        for pattern in pattern_list:
+            for fn in glob.glob(pattern):
+                assert self._isTrival(fn)
+
+
+
+
+
+
+        event_mask = pyinotify.IN_ATTRIB | pyinotify.IN_CREATE | pyinotify.IN_DELETE | pyinotify.IN_CLOSE_WRITE
+        event_aux = pyinotify.IN_DONT_FOLLOW
+
+        self.dirname = dirname
+        self.wm = pyinotify.WatchManager()
+
+#        retDict = self.wm.add_watch(dirname, mask, rec = True)
+#        for path, wd in retDict.items():
+#            assert wd > 0
+
+    def dispose(self):
+        pass
+#        retDict = self.wm.rm_watch(self.wm.get_wd(self.dirname), rec = True)
+#        for wd, ret in retDict.items():
+#            assert ret
+
+    def _procFunc(self, event):
+        pass
+
+    def _isTrival(self, pathname):
+        """symlink is viewed as file"""
+
+        if os.path.islink(pathname):
+            return True
+        elif os.path.isdir(pathname):
+            return (not os.path.islink(pathname))
+        elif stat.S_ISCHR(os.stat(pathname).st_mode):
+            return False
+        elif stat.S_ISBLK(os.stat(pathname).st_mode):
+            return False
+        elif stat.S_ISFIFO(os.stat(pathname).st_mode):
+            return False
+        elif stat.S_ISSOCK(os.stat(pathname).st_mode):
+            return False
+        else:
+            return True
+
+
+
+
 
 
 
@@ -792,7 +844,81 @@ class VccRepo:
         for fb in sorted(os.listdir(dirName)):
             f = os.path.join(dirName, fb)
             fr = os.path.join(pdirName, fb)
-            if any(x for x in ignoreList if fnmatch.fnmatch(f, x)):
+            if any(x for x in ignoreLis
+class VccDirMonitor:
+
+    def __init__(self, dirname, changeFunc):
+        assert VccUtil.isTrivalDir(dirname)
+
+        event_mask = pyinotify.IN_ATTRIB | pyinotify.IN_CREATE | pyinotify.IN_DELETE | pyinotify.IN_CLOSE_WRITE
+        event_aux = pyinotify.IN_DONT_FOLLOW
+
+        self.dirname = dirname
+        self.wm = pyinotify.WatchManager()
+
+#        retDict = self.wm.add_watch(dirname, mask, rec = True)
+#        for path, wd in retDict.items():
+#            assert wd > 0
+
+    def dispose(self):
+class VccDirMonitor:
+
+    def __init__(self, dirname, changeFunc):
+        assert VccUtil.isTrivalDir(dirname)
+
+        event_mask = pyinotify.IN_ATTRIB | pyinotify.IN_CREATE | pyinotify.IN_DELETE | pyinotify.IN_CLOSE_WRITE
+        event_aux = pyinotify.IN_DONT_FOLLOW
+
+        self.dirname = dirname
+        self.wm = pyinotify.WatchManager()
+
+#        retDict = self.wm.add_watch(dirname, mask, rec = True)
+#        for path, wd in retDict.items():
+#            assert wd > 0
+
+    def dispose(self):
+        pass
+#        retDict = self.wm.rm_watch(self.wm.get_wd(self.dirname), rec = True)
+#        for wd, ret in retDict.items():
+#            assert ret
+
+    def _procFunc(self, event):
+        pass
+
+
+class VccFileMonitor:
+
+    def __init__(self, filename, changeFunc):
+        assert VccUtil.isTrivalFile(filename)
+
+        pass
+
+    def dispose(self):
+        pass
+
+
+
+        pass
+#        retDict = self.wm.rm_watch(self.wm.get_wd(self.dirname), rec = True)
+#        for wd, ret in retDict.items():
+#            assert ret
+
+    def _procFunc(self, event):
+        pass
+
+
+class VccFileMonitor:
+
+    def __init__(self, filename, changeFunc):
+        assert VccUtil.isTrivalFile(filename)
+
+        pass
+
+    def dispose(self):
+        pass
+
+
+t if fnmatch.fnmatch(f, x)):
                 continue
             assert VccUtil.isTrival(f)
 
@@ -845,41 +971,4 @@ class VccRepo:
 class VccError(Exception):
     def __init__(self, message):
         super(VccError).__init__(self, message)
-
-
-class VccDirMonitor:
-
-    def __init__(self, dirname, changeFunc):
-        assert VccUtil.isTrivalDir(dirname)
-
-        event_mask = pyinotify.IN_ATTRIB | pyinotify.IN_CREATE | pyinotify.IN_DELETE | pyinotify.IN_CLOSE_WRITE
-        event_aux = pyinotify.IN_DONT_FOLLOW
-
-        self.dirname = dirname
-        self.wm = pyinotify.WatchManager()
-
-#        retDict = self.wm.add_watch(dirname, mask, rec = True)
-#        for path, wd in retDict.items():
-#            assert wd > 0
-
-    def dispose(self):
-        pass
-#        retDict = self.wm.rm_watch(self.wm.get_wd(self.dirname), rec = True)
-#        for wd, ret in retDict.items():
-#            assert ret
-
-    def _procFunc(self, event):
-        pass
-
-
-class VccFileMonitor:
-
-    def __init__(self, filename, changeFunc):
-        assert VccUtil.isTrivalFile(filename)
-
-        pass
-
-    def dispose(self):
-        pass
-
 

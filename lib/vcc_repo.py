@@ -15,7 +15,7 @@ class VccRepo:
         self.pullCompleteCallback = pull_complete_callback
 
         self.serverProc = None
-        self.pullTaskRunner = TaskRunner(None, None, self._onPullTaskRun, self._onPullTaskRunnerGoIdle)
+        self.pullTaskRunner = TaskRunner(None, None, self._onPullTaskRun, self._onPullTaskComplete)
 
     def dispose(self):
         assert self.serverProc is None
@@ -62,7 +62,7 @@ class VccRepo:
             time.sleep(10)
         _callGit(self.repoObj.dir_name, "remote remove peer", "stdout")
 
-    def _onPullTaskRunnerGoIdle(self, dummy):
+    def _onPullTaskComplete(self, dummy):
         if self.pullCompleteCallback is not None:
             self.pullCompleteCallback()
 
@@ -73,45 +73,7 @@ class VccRepo:
             return
         _callGit(self.dirName, "add .", "stdout")
         _callGit(self.dirName, "commit -a -m \"%s\"" % ("none"), "stdout")
-        self.change_callback()
-
-
-class _PullThread(threading.Thread):
-
-    def __init__(self, repoObj):
-        self.repoObj = repoObj
-        self.pullQueue = queue.Queue()
-        self.pullStop = False
-        self.pullCompleteIdleHandler = None
-
-    def add(peer_name, ip, port):
-        self.pullQueue.put((peer_name, ip, port))
-
-    def stop(self):
-        self.pullQueue.put(None)
-        self.pullStop = None
-
-    def run(self):
-        while not self.repoObj.pullStop:
-            data = self.pullQueue.get()
-            if data is None:
-                break
-            peer_name, ip, port = data
-
-            try:
-            finally:
-                self.pullQueue.task_done()
-                if len(self.pullQueue) == 0 and self.repoObj.pullCompleteIdleHandler is None:
-                    self.repoObj.pullCompleteIdleHandler = GLib.idle_add(self._pullCompleteIdleCallback)
-
-    def _pullCompleteIdleCallback(self):
-        if self.repoObj.pullCompleteCallback is not None:
-            self.repoObj.pullCompleteCallback(self.repoObj.name)
-
-
-
-        self.repoObj.pullCompleteIdleHandler = None
-        return False
+        self.changeCallback()
 
 
 def _callGit(dir_name, command, shellMode=""):
