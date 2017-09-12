@@ -7,49 +7,90 @@ from vcc_util import VccUtil
 
 class VccRepo:
 
-    def __init__(self, name, dir_name, change_callback, pull_complete_callback):
+    def __init__(self, name, dir_name, change_callback):
         assert os.path.exists(dir_name)
         self.name = name
         self.dirName = dir_name
         self.changeCallback = change_callback
-        self.pullCompleteCallback = pull_complete_callback
 
         self.serverProc = None
-        self.pullTaskRunner = TaskRunner(None, None, self._onPullTaskRun, self._onPullTaskComplete)
+        self.serverPort = None
+        self.serverTimer = None
+        self.serverTimeout = 6 * 60     # in seconds
+
+        self.monitor = None
+
+        self.pullTaskRunner = TaskRunner(None, None, self._onPullTaskRun, None)
 
     def dispose(self):
-        assert self.serverProc is None
-        self.pullTaskRunner.stop()
-        self.pullTaskRunner = None
+        self._stopMonitor()
+        if self.pullTaskRunner is not None:
+            self.pullTaskRunner.stop()
+        self._stopServer()
+
+    def commit(self):
+        _callGit(self.dirName, "add .", "stdout")
+        _callGit(self.dirName, "commit -a -m \"%s\"" % ("none"), "stdout")
 
     def pull_from(self, peer_name, ip, port):
         self.pullThread.add_task(peer_name, ip, port)
 
     def start_server(self):
-        port = getFreeSocketPort("tcp")
+        try:
+            if self.serverProc is None:
+                self.serverPort = getFreeSocketPort("tcp")
 
-        cmd = "/usr/bin/git"
-        cmd += " --export-all"
-        cmd += " --strict-paths"
-        cmd += " --export-all"
-        # cmd += " --listen=%s"                # fixme, should only listen on one address
-        cmd += " --port=%d" % (port)
-        cmd += " --base-path=%s" % (self.dirName)
-        cmd += " \"%s\"" % (self.dirName)
-        self.serverProc = subprocess.Popen(cmd)
-        
-        return port
+                cmd = "/usr/bin/git"
+                cmd += " --export-all"
+                cmd += " --strict-paths"
+                cmd += " --export-all"
+                # cmd += " --listen=%s"                # fixme, should only listen on one address
+                cmd += " --port=%d" % (self.serverPort)
+                cmd += " --base-path=%s" % (self.dirName)
+                cmd += " \"%s\"" % (self.dirName)
+                self.serverProc = subprocess.Popen(cmd)
 
-    def stop_server(self):
-        self.serverProc.terminate()
-        self.serverProc.wait()
-        self.serverProc = None
+                self.serverTimer = GObject.timeout_add_seconds(serverTimeout, self._onServerTimeout)
+            else:
+                GLib.source_remove(self.serverTimer)
+                self.serverTimer = GObject.timeout_add_seconds(serverTimeout, self._onServerTimeout)
 
-    def start_monitor(self, change_callback):
-        pass
+            return self.serverPort
+        except:
+            if serverProc is not None:
+
+
+
+    def start_monitor(self):
+        try:
+            self.monitor = FilePatternMonitor(self.dirName)
+            self.commit()
+            self.changeCallback()
+        except:
+            self._stopMonitor()
 
     def stop_monitor(self):
-        pass
+        self._stopMonitor()
+
+    def _stopMonitor(self):
+        if self.monitor is not None:
+            self.monitor.dispose()
+            self.monitor = None
+
+    def _stopServer(self):
+        if self.serverProc is not None:
+            self.serverProc.terminate()
+            self.serverProc.wait()
+            self.serverProc = None
+        if self.serverTimer is not None:
+            GLib.source_remove(self.serverTimer)
+            self.serverTimer = None
+        self.serverPort = None
+
+    def _onServerTimeout(self):
+        self.serverTimer = None
+        self._stopServer()
+        return False
 
     def _onPullTaskRun(self, dummy, peer_name, ip, port):
         _callGit(self.dir_name, "remote add peer git://%s:%d" % (ip, port), "stdout")
@@ -61,17 +102,12 @@ class VccRepo:
             time.sleep(10)
         _callGit(self.repoObj.dir_name, "remote remove peer", "stdout")
 
-    def _onPullTaskComplete(self, dummy):
-        if self.pullCompleteCallback is not None:
-            self.pullCompleteCallback()
-
     def _onChange(self, monitor, file, other_file, event_type):
         if self.pullTaskRunner.is_running():
             return
         if event_type not in _validEvent():
             return
-        _callGit(self.dirName, "add .", "stdout")
-        _callGit(self.dirName, "commit -a -m \"%s\"" % ("none"), "stdout")
+        self.commit()
         self.changeCallback()
 
 

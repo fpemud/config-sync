@@ -12,8 +12,11 @@ def getArgParser():
 	parser = argparse.ArgumentParser()
 	subparsers = parser.add_subparsers()
 
-	parserEdit = subparsers.add_parser('edit', help='Start edit')
-	parserEdit.set_defaults(op="edit")
+	parserStatus = subparsers.add_parser('status', help='Show status')
+	parserStatus.set_defaults(op="status")
+
+	parserPause = subparsers.add_parser('pause', help='Pause synchronization so that you can compare and edit configurations')
+	parserPause.set_defaults(op="pause")
 
 	return parser
 
@@ -21,7 +24,10 @@ def getArgParser():
 
 param = VccParam()
 args = getArgParser().parse_args()
-if args.op == "edit":
+
+if args.op == "status":
+	pass
+elif args.op == "edit":
 	userLockFile = os.path.join(self.param.dataDir, "userlock")
 	try:
 		with open(userLockFile, "w") as f:

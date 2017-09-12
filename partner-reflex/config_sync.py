@@ -72,9 +72,6 @@ class _PluginObject:
             repoObj.pull_from(peername, self.peer_info[peername]["ip"], jsonObj["port"])
             return
 
-        if "pull-complete" in jsonObj:
-            return
-
         assert False
 
     def on_repo_change(self, repo_name):
@@ -93,15 +90,6 @@ class _PluginObject:
         message = json.dumps(jsonObj)
         for pi in self.peer_info:
             self.send_message_to_peer(pi["hostname"], message)
-
-    def on_repo_pull_complete(self, repo_name):
-        jsonObj = {
-            "pull-complete": {
-                "repo-name": repo_name,
-            },
-        }        
-        message = json.dumps(jsonObj)
-        # fixme
 
     def on_user_lock(self):
         pass
