@@ -29,15 +29,14 @@ class VccRepo:
         port = getFreeSocketPort("tcp")
 
         cmd = "/usr/bin/git"
-        cmd += " --export-all"        self.bStop = False
-
+        cmd += " --export-all"
         cmd += " --strict-paths"
         cmd += " --export-all"
         # cmd += " --listen=%s"                # fixme, should only listen on one address
         cmd += " --port=%d" % (port)
         cmd += " --base-path=%s" % (self.dirName)
         cmd += " \"%s\"" % (self.dirName)
-        self.serverProc = subprocess.Popenpull_complete_callback(cmd)
+        self.serverProc = subprocess.Popen(cmd)
         
         return port
 
