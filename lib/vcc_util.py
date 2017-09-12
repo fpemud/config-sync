@@ -549,36 +549,61 @@ class TaskRunner(threading.Thread):
             return False
 
 
-class FileMonitor:
+class FilePatternMonitor:
 
     def __init__(self, pattern_list, change_callback):
         for pattern in pattern_list:
+            bFound = False
             for fn in glob.glob(pattern):
                 assert self._isTrival(fn)
+                bFound = True
+            assert bFound
 
+        self.change_callback = change_callback
+        self.monitorList = []
+        for pattern in pattern_list:
+            self._monitorPattern(pattern)
 
+    def _monitorPattern(self, pattern):
+        for fn in glob.glob(pattern):
+            if os.path.islink(fn) or os.path.isfile(fn):
+                monitor = Gio.File.new_for_path(fn).monitor_file(0, None)
+                monitor.connect("changed", self._onChange)
+                self.monitorList.append(monitor)
+            else:
+                monitor = Gio.File.new_for_path(fn).monitor_directory(0, None)
+                monitor.connect("changed", self._onChange)
+                self.monitorList.append(monitor)
+                for dirpath, dirnames, filenames in os.walk(fn):
+                    for dn in dirnames:
+                        monitor = Gio.File.new_for_path(dn).monitor_directory(0, None)
+                        monitor.connect("changed", self._onChange)
+                        self.monitorList.append(monitor)
 
+    def _onChange(self, monitor, file, other_file, event_type):
+        if event_type == Gio.FileMonitorEvent.CREATED:
+            fn = file.get_path()
+            if os.path.isdir(fn):
+                monitor = Gio.File.new_for_path(fn).monitor_directory(0, None)
+                monitor.connect("changed", self._onChange)
+                self.monitorList.append(monitor)
+            self.change_callback(fn)
+            return
 
+        if event_type == Gio.FileMonitorEvent.DELETED:
+            fn = file.get_path()
+            self.monitorList.remove(monitor)
+            self.change_callback(fn)
+            return
 
-
-        event_mask = pyinotify.IN_ATTRIB | pyinotify.IN_CREATE | pyinotify.IN_DELETE | pyinotify.IN_CLOSE_WRITE
-        event_aux = pyinotify.IN_DONT_FOLLOW
-
-        self.dirname = dirname
-        self.wm = pyinotify.WatchManager()
-
-#        retDict = self.wm.add_watch(dirname, mask, rec = True)
-#        for path, wd in retDict.items():
-#            assert wd > 0
+        if event_type in [Gio.FileMonitorEvent.CHANGES_DONE_HINT, Gio.FileMonitorEvent.ATTRIBUTE_CHANGED]:
+            fn = file.get_path()
+            self.change_callback(fn)
+            return
 
     def dispose(self):
-        pass
-#        retDict = self.wm.rm_watch(self.wm.get_wd(self.dirname), rec = True)
-#        for wd, ret in retDict.items():
-#            assert ret
-
-    def _procFunc(self, event):
-        pass
+        for monitor in self.monitorList.values():
+            monitor.cancel()
 
     def _isTrival(self, pathname):
         """symlink is viewed as file"""

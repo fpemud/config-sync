@@ -18,7 +18,7 @@ def get_reflex_properties(name):
         return {
             "need-plugin": ["mesh"],
             "protocol": "config-sync",
-            "role": "p2p-endpoint",
+            "role": "p2p-per-peer",
         }
     else:
         assert False
