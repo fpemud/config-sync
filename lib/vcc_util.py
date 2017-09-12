@@ -489,17 +489,21 @@ class TaskRunner(threading.Thread):
         self.complete_callback = complete_callback
 
 		self.taskQueue = queue.Queue()
+        self.retList = []
+        self.lock = threading.Lock()
 		self.bStop = False
 		self.completeIdleHandler = None
-        self.retList = []
 
         self.start()
 
     def is_running(self):
-        return len(self.taskQueue) > 0 or self.completeIdleHandler is not None
+        self.lock.acquire()
+        ret = len(self.taskQueue) > 0 or self.completeIdleHandler is not None
+        self.lock.release()
+        return ret
 
 	def add_task(*args):
-		self.taskQueue.put(args)
+        self.taskQueue.put(args)
 
 	def stop(self):
 		self.bStop = True
@@ -516,22 +520,33 @@ class TaskRunner(threading.Thread):
                 if args is None:
                     break
                 ret = self.process_callback(*args)
+                self.lock.acquire()
                 retList.append(ret)
+                self.lock.release()
             except:
                 if self.logger is not None:
                     self.logger.error("Error occured in task runner.", exc_info=True)
 			finally:
-				if len(self.taskQueue) == 1 and self.completeIdleHandler is None:
-					self.completeIdleHandler = GLib.idle_add(self._pullCompleteIdleCallback)
+                self.lock.acquire()
 				self.taskQueue.task_done()
+				if len(self.taskQueue) == 0 and self.completeIdleHandler is None:
+					self.completeIdleHandler = GLib.idle_add(self._pullCompleteIdleCallback, self.retList)
+                    self.retList = []
+                self.lock.release()
 
-	def _pullCompleteIdleCallback(self):
-		self.completeIdleHandler = None
-		if self.complete_callback is not None:
-			self.complete_callback(self.retList)
-		return False
-
-
+	def _pullCompleteIdleCallback(self, retList):
+        self.lock.acquire()
+        try:
+            if self.complete_callback is not None:
+                self.complete_callback(self.retList)
+        finally:
+            if len(self.retList) > 0:
+                self.completeIdleHandler = GLib.idle_add(self._pullCompleteIdleCallback, self.retList)
+                self.retList = []
+            else:
+                self.completeIdleHandler = None
+            self.lock.release()
+            return False
 
 
 
