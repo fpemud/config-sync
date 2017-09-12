@@ -28,7 +28,7 @@ def get_reflex_properties(name):
 
 
 def get_reflex_object(fullname):
-    if fullname.startswith("config-sync."):
+    if name == "config-sync":
         return _PluginObject()
     else:
         assert False
