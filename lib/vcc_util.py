@@ -549,7 +549,7 @@ class TaskRunner(threading.Thread):
             return False
 
 
-class FilePatternMonitor:
+class FileMonitor:
 
     def __init__(self, pattern_list, change_callback):
         for pattern in pattern_list:
@@ -624,7 +624,63 @@ class FilePatternMonitor:
             return True
 
 
+class FileComparer:
 
+    def __init__(self, pathname1, pathname2):
+        # compare symlink
+        if os.path.islink(pathname1):
+            if not os.path.islink(pathname2):
+                return False
+            if os.path.readlink(pathname1) != os.path.readlink(pathname2):
+                return False
+            return True
+        else:
+            if os.path.islink(pathname2):
+                return False
+
+        # compare directory
+        if os.path.isdir(pathname1):
+            if not os.path.isdir(pathname2):
+                return False
+            if not self._cmpStat(pathname1, pathname2):
+                return False
+            return self._cmpDir(filecmp.dircmp(pathname1, pathname2))
+        else:
+            if os.path.isdir(pathname2):
+                return False
+
+        # compare file
+        if not self._cmpStat(pathname1, pathname2):
+            return False
+        return filecmp.cmp(pathname1, pathname2)
+
+    def _cmpDir(self, obj):
+        if obj.left_only != []:
+            return False
+        if obj.right_only != []:
+            return False
+        if obj.diff_files != []:
+            return False
+        if obj.funny_files != []:
+            return False
+        for fn in obj.common:
+            if not self._cmpStat(os.path.join(obj.left, fn), os.path.join(obj.right, fn)):
+                return False
+        for obj2 in obj.values():
+            if not self._cmpDir(obj2):
+                return False
+        return True
+
+    def _cmpStat(self, fn1, fn2):
+        stat1 = os.stat(fn1)
+        stat2 = os.stat(fn2)
+        if stat1.st_mode != stat2.st_mode:
+            return False
+        if stat1.st_uid != stat2.st_uid:
+            return False
+        if stat1.st_gid != stat2.st_gid:
+            return False
+        return True
 
 
 

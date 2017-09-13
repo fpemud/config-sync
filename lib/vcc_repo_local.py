@@ -90,7 +90,24 @@ class VccLocalRepoManager:
 
 
 def _sys_cmp_etc_dir(obj, dirname, dataDir):
-    pass
+    dataEtcDir = os.path.join(dataDir, "etc")
+    dataEtcTargetDir = os.path.join(dataEtcDir, dirname.replace("/etc/", ""))
+
+    if os.path.exists(dirname):
+        if not os.path.exists(dataEtcTargetFile):
+            return False
+        obj = filecmp.dircmp(dirname, dataEtcTargetDir, ignore=[])
+        if obj.left_only != []:
+            return False
+        if obj.right_only != []:
+            return False
+        if obj.diff_files != []:
+            return False
+        if obj.funny_files != []:
+            return False
+        return True
+    else:
+
 
 def _sys_to_sync_etc_dir(obj, dirname, dataDir):
     dataEtcDir = os.path.join(dataDir, "etc")
