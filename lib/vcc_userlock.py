@@ -12,11 +12,9 @@ class VccUserLock:
         self.lock_callback = lock_callback
         self.unlock_callback = unlock_callback
 
-        lockfile = os.path.join(self.param.dataDir, "userlock")
-        self.monitor = Gio.File.new_for_path(lockfile).monitor_file(0, None)
-        self.monitor.connect("changed", self._on_change)
 
-        self.locked = os.path.exists(lockfile)
+
+
 
     def get_value(self):
         self.locked
