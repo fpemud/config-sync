@@ -18,6 +18,9 @@ def getArgParser():
 	parserPause = subparsers.add_parser('pause', help='Pause synchronization so that you can compare and edit configurations')
 	parserPause.set_defaults(op="pause")
 
+	parserTrigger = subparsers.add_parser('trigger', help='Trigger synchronization manually')
+	parserTrigger.set_defaults(op="trigger")
+
 	return parser
 
 ###############################################################################
@@ -27,12 +30,14 @@ args = getArgParser().parse_args()
 
 if args.op == "status":
 	pass
-elif args.op == "edit":
+elif args.op == "pause":
 	userLockFile = os.path.join(self.param.dataDir, "userlock")
 	try:
 		with open(userLockFile, "w") as f:
 			pass
 	finally:
 		os.unlink(userLockFile)
+elif args.op == "trigger":
+	pass
 else:
 	raise Exception("Invalid sub command")

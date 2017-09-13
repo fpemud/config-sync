@@ -26,6 +26,7 @@ class VccRepo:
         self._stopMonitor()
         if self.pullTaskRunner is not None:
             self.pullTaskRunner.stop()
+			self.pullTaskRunner = None
         self._stopServer()
 
     def commit(self):
@@ -57,9 +58,7 @@ class VccRepo:
 
             return self.serverPort
         except:
-            if serverProc is not None:
-
-
+            self._stopServer()
 
     def start_monitor(self):
         try:
@@ -115,6 +114,7 @@ def _callGit(dir_name, command, shellMode=""):
     gitDir = os.path.join(dir_name, ".git")
     cmdStr = "/bin/git --git-dir=\"%s\" --work-tree=\"%s\" %s"%(gitDir, dir_name, command)
     return VccUtil.shell(cmdStr, shellMode)
+
 
 def _validEvent():
     return [
