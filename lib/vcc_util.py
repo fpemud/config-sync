@@ -624,9 +624,10 @@ class FileMonitor:
             return True
 
 
-class FileComparer:
+class FileCmp:
 
-    def __init__(self, pathname1, pathname2):
+    @staticmethod
+    def compare(pathname1, pathname2):
         # compare symlink
         if os.path.islink(pathname1):
             if not os.path.islink(pathname2):
@@ -642,18 +643,19 @@ class FileComparer:
         if os.path.isdir(pathname1):
             if not os.path.isdir(pathname2):
                 return False
-            if not self._cmpStat(pathname1, pathname2):
+            if not FileCmp._cmpStat(pathname1, pathname2):
                 return False
-            return self._cmpDir(filecmp.dircmp(pathname1, pathname2))
+            return FileCmp._cmpDir(filecmp.dircmp(pathname1, pathname2))
         else:
             if os.path.isdir(pathname2):
                 return False
 
         # compare file
-        if not self._cmpStat(pathname1, pathname2):
+        if not FileCmp._cmpStat(pathname1, pathname2):
             return False
         return filecmp.cmp(pathname1, pathname2)
 
+    @staticmethod
     def _cmpDir(self, obj):
         if obj.left_only != []:
             return False
@@ -671,6 +673,7 @@ class FileComparer:
                 return False
         return True
 
+    @staticmethod
     def _cmpStat(self, fn1, fn2):
         stat1 = os.stat(fn1)
         stat2 = os.stat(fn2)
@@ -681,6 +684,72 @@ class FileComparer:
         if stat1.st_gid != stat2.st_gid:
             return False
         return True
+
+
+
+
+class FileMonitor:
+
+    def __init__(self, pattern_list, change_callback):
+		# register inotify for workspace directory
+		self.wm = pyinotify.WatchManager()
+		self.wdd = self.wm.add_watch(self.codeDir, EventsCodes.IN_CREATE | EventsCodes.IN_DELETE)
+
+		class CodeDirWatcher(ProcessEvent):
+			def __init__(self, pluginObj):
+				self.pluginObj = pluginObj
+		    def process_IN_CREATE(self, event):
+		        self.pluginObj._onGitRepoCreate(event.path)
+		    def process_IN_DELETE(self, event):
+		        self.pluginObj._onGitRepoDelete(event.path)
+		notifier = pyinotify.Notifier(self.wm, CodeDirWatcher(self))
+
+		def process_inotify(source, cb_condition): 
+		    if notifier.check_events(): 
+		        notifier.read_events() 
+		    notifier.process_events() 
+		    return True
+		GLib.io_add_watch(self.wm.get_fd(), glib.IO_IN, process_inotify)
+
+		# add hooks
+		for d, fulld in self._getRepoDirList()
+			try:
+				
+
+
+			
+				_appendIgnoreList(path)				# give user freedom by igonring the repository after adding hook for it
+
+		# do pull, do push (time consuming)
+		for d, fulld in self._getRepoDirList()
+
+
+
+
+			_callGit("push")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
