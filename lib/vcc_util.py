@@ -551,6 +551,9 @@ class TaskRunner(threading.Thread):
 
 class FileMonitor:
 
+    # It suckss that there's no way to get the PID of the process who modifies the target file or directory.
+    # inotify does not support it, fanotify is not fully implemented yet.
+
     def __init__(self, pattern_list, change_callback):
         for pattern in pattern_list:
             bFound = False
@@ -561,8 +564,18 @@ class FileMonitor:
 
         self.change_callback = change_callback
         self.monitorList = []
+
+    def dispose(self):
+        assert self.monitorList == []
+
+    def start(self):
         for pattern in pattern_list:
             self._monitorPattern(pattern)
+
+    def stop(self):
+        for monitor in self.monitorList.values():
+            monitor.cancel()
+        self.monitorList = []
 
     def _monitorPattern(self, pattern):
         for fn in glob.glob(pattern):
@@ -600,10 +613,6 @@ class FileMonitor:
             fn = file.get_path()
             self.change_callback(fn)
             return
-
-    def dispose(self):
-        for monitor in self.monitorList.values():
-            monitor.cancel()
 
     def _isTrival(self, pathname):
         """symlink is viewed as file"""
@@ -684,79 +693,6 @@ class FileCmp:
         if stat1.st_gid != stat2.st_gid:
             return False
         return True
-
-
-
-
-class FileMonitor:
-
-    def __init__(self, pattern_list, change_callback):
-		# register inotify for workspace directory
-		self.wm = pyinotify.WatchManager()
-		self.wdd = self.wm.add_watch(self.codeDir, EventsCodes.IN_CREATE | EventsCodes.IN_DELETE)
-
-		class CodeDirWatcher(ProcessEvent):
-			def __init__(self, pluginObj):
-				self.pluginObj = pluginObj
-		    def process_IN_CREATE(self, event):
-		        self.pluginObj._onGitRepoCreate(event.path)
-		    def process_IN_DELETE(self, event):
-		        self.pluginObj._onGitRepoDelete(event.path)
-		notifier = pyinotify.Notifier(self.wm, CodeDirWatcher(self))
-
-		def process_inotify(source, cb_condition): 
-		    if notifier.check_events(): 
-		        notifier.read_events() 
-		    notifier.process_events() 
-		    return True
-		GLib.io_add_watch(self.wm.get_fd(), glib.IO_IN, process_inotify)
-
-		# add hooks
-		for d, fulld in self._getRepoDirList()
-			try:
-				
-
-
-			
-				_appendIgnoreList(path)				# give user freedom by igonring the repository after adding hook for it
-
-		# do pull, do push (time consuming)
-		for d, fulld in self._getRepoDirList()
-
-
-
-
-			_callGit("push")
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 class VccRepo:
