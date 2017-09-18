@@ -1,6 +1,10 @@
 #!/usr/bin/python3
 # -*- coding: utf-8; tab-width: 4; indent-tabs-mode: t -*-
 
+import os
+import shutil
+import subprocess
+
 
 class SystemObject:
     
@@ -18,23 +22,23 @@ class SystemObject:
             "portage-world",
         ]
 
-    def convert_to(self, dataDir):
+    def convert_to(self):
         # /etc/portage
-        self._to_sync_etc_dir("/etc/portage", dataDir)
+        self._to_sync_etc_dir("/etc/portage")
 
         # /var/lib/portage/world
-        targetFile = os.path.join(dataDir, "portage-world")
+        targetFile = os.path.join(self._data_dir, "portage-world")
         if os.path.exists("/var/lib/portage/word"):
-            subprocess.check_call(["/bin/cp", "/var/lib/portage/word", dataDir])
+            subprocess.check_call(["/bin/cp", "/var/lib/portage/word"])
         else:
             _forceDelete(targetFile)
 
-    def convert_from(self, dataDir):
+    def convert_from(self):
         # /etc/portage
-        self._from_sync_etc_dir("/etc/portage", dataDir)
+        self._from_sync_etc_dir("/etc/portage")
 
         # /var/lib/portage/world
-        targetFile = os.path.join(dataDir, "portage-world")
+        targetFile = os.path.join(self._data_dir, "portage-world")
         if os.path.exists(targetFile):
             _ensureDir("/var/lib/portage")
             subprocess.check_call(["/bin/cp", targetFile, "/var/lib/portage"])

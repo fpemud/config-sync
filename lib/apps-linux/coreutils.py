@@ -16,12 +16,12 @@ class SystemObject:
             "etc/DIR_COLORS",
         ]
 
-    def compare(self, dataDir):
+    def compare(self):
         pass
 
-    def convert_to(self, dataDir):
-        self._to_sync_etc_files("/etc/DIR_COLORS", dataDir)
+    def convert_to(self):
+        self._to_sync_etc_files("/etc/DIR_COLORS")
 
-    def convert_from(self, dataDir):
-        self._from_sync_etc_files("/etc/DIR_COLORS", dataDir)
+    def convert_from(self):
+        self._from_sync_etc_files("/etc/DIR_COLORS")
 

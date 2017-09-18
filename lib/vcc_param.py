@@ -15,4 +15,3 @@ class VccParam:
 			self.dataDir = "/var/cache/config-sync"
 		else:
 			self.dataDir = "/home/%s/.cache/config-sync" % (pwd.getpwuid(os.getuid())[0])
-			self.homeDir = "/home/%s" % (pwd.getpwuid(os.getuid())[0])

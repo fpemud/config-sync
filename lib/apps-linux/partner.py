@@ -16,11 +16,11 @@ class SystemObject:
             "etc/partner",
         ]
 
-    def convert_to(self, dataDir):
-        self._to_sync_etc_dir("/etc/partner", dataDir)
+    def convert_to(self):
+        self._to_sync_etc_dir("/etc/partner")
 
-    def convert_from(self, dataDir):
-        self._from_sync_etc_dir("/etc/partner", dataDir)
+    def convert_from(self):
+        self._from_sync_etc_dir("/etc/partner")
 
 
 class UserObject:
@@ -33,11 +33,11 @@ class UserObject:
 
     def ncfs_pattern_list(self):
         self.ncfs_pattern_list = [
-            "_config/partner"
+            "_config/partner",
         ]
 
-    def convert_to(self, dataDir):
-        self._to_sync_dir_in_config(".config/partner", dataDir)
+    def convert_to(self):
+        self._to_sync_dir_in_config(".config/partner")
 
-    def convert_from(self, dataDir):
-        self._from_sync_dir_in_config(".config/partner", dataDir)
+    def convert_from(self):
+        self._from_sync_dir_in_config(".config/partner")
