@@ -13,17 +13,21 @@ class VccRepo:
         self.dirName = dir_name
         self.changeCallback = change_callback
 
+        _createRepoIfNotExist(self.dirName)
+
         self.serverProc = None
         self.serverPort = None
         self.serverTimer = None
         self.serverTimeout = 6 * 60     # in seconds
 
-        self.monitor = None
+        self.monitor = FileMonitor(self.dirName)
 
         self.pullTaskRunner = TaskRunner(None, None, self._onPullTaskRun, None)
 
     def dispose(self):
-        self._stopMonitor()
+        if self.monitor is not None:
+            self.monitor.stop()
+            self.monitor = None
         if self.pullTaskRunner is not None:
             self.pullTaskRunner.stop()
 			self.pullTaskRunner = None
@@ -62,19 +66,14 @@ class VccRepo:
 
     def start_monitor(self):
         try:
-            self.monitor = FilePatternMonitor(self.dirName)
             self.commit()
+            self.monitor.start()
             self.changeCallback()
         except:
-            self._stopMonitor()
+            self.monitor.stop()
 
     def stop_monitor(self):
-        self._stopMonitor()
-
-    def _stopMonitor(self):
-        if self.monitor is not None:
-            self.monitor.dispose()
-            self.monitor = None
+        self.monitor.stop()
 
     def _stopServer(self):
         if self.serverProc is not None:
@@ -110,6 +109,78 @@ class VccRepo:
         self.changeCallback()
 
 
+class VccLocalRepo(VccRepo):
+
+    def __init__(self, param, change_callback):
+        self.param = param
+        self.myDataDir = os.path.join(self.param.dataDir, "localhost")
+        self.appDict = VccAppDict(self.param)
+
+        # create repo if not exists
+        if _createRepoIfNotExist(self.dirName):
+            for obj in self.appObjDict.values():
+                obj.convert_to(self.myDataDir)
+
+        super().__init__("localhost", self.myDataDir, change_callback)
+
+        self.mDictCfg = dict()                      # dict<app-name, monitor-object>
+        self.mDictNcfs = dict()                     # dict<app-name, monitor-object>
+        for appname, obj in self.appDict.items():
+            mobj = FileMonitor(obj.cfg_pattern_list)
+            mobj.appname = appname
+            self.mDictCfg[appname] = mobj
+            mobj = FileMonitor(obj.ncfs_pattern_list)
+            mobj.appname = appname
+            self.mDictNcfs[appname] = mobj
+
+    def dispose(self):
+        self._stopMonitor()
+        super().dispose()
+
+    def start_monitor(self):
+        super().start_monitor()
+        for mobj in self.mDictCfg.values():
+            mobj.start()
+        for mobj in self.mDictNcfs.values():
+            mobj.start()
+
+    def stop_monitor(self):
+        self._stopMonitor()
+        super().stop_monitor()
+
+    def _stopMonitor(self):
+        for mobj in self.mDictNcfs.values():
+            mobj.stop()
+        for mobj in self.mDictCfg.values():
+            mobj.stop()
+
+    def _onCfgChangeForApp(self, mobj, filename):
+        appObj = self.appDict[mobj.appname]
+        if not appObj.compare(self.myDataDir):
+            self.mDictNcfs[mobj.appname].stop()
+            try:
+                appObj.convert_to(self.myDataDir)
+            finally:
+                self.mDictNcfs[mobj.appname].start()
+
+    def _onNcfsChangeForApp(self, mobj, filename):
+        appObj = self.appDict[mobj.appname]
+        if not appObj.compare(self.myDataDir):
+            self.mDictCfg[mobj.appname].stop()
+            try:
+                appObj.convert_from(self.myDataDir)
+            finally:
+                self.mDictCfg[mobj.appname].start()
+
+
+def _createRepoIfNotExist(dir_name):
+    if not os.path.exists(dir_name):
+        os.makedirs(dir_name)
+        _callGit(dir_namee, "init", "stdout")
+        return True
+    return False
+
+
 def _callGit(dir_name, command, shellMode=""):
     gitDir = os.path.join(dir_name, ".git")
     cmdStr = "/bin/git --git-dir=\"%s\" --work-tree=\"%s\" %s"%(gitDir, dir_name, command)
@@ -123,6 +194,57 @@ def _validEvent():
         Gio.FileMonitorEvent.CREATED,
         Gio.FileMonitorEvent.ATTRIBUTE_CHANGED
     ]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

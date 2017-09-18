@@ -8,11 +8,43 @@ from vcc_util import VccUtil
 from vcc_util import FileComparer
 
 
-class VccApps:
+
+
+class VccUserLock:
+
+    def __init__(self, param, lock_callback, unlock_callback):
+        self.param = param
+        self.lock_callback = lock_callback
+        self.unlock_callback = unlock_callback
+
+
+
+
+
+    def get_value(self):
+        self.locked
+
+    def dispose(self):
+        self.monitor.cancel()
+
+    def _on_change(self, monitor, file, other_file, event_type):
+        if event_type == Gio.FileMonitorEvent.CREATED:
+            self.locked = True
+            self.lock_callback()
+            return
+
+        if event_type == Gio.FileMonitorEvent.DELETED:
+            self.locked = False
+            self.unlock_callback()
+            return
+
+        assert False
+
+
+class VccAppDict(dict):
 
     def __init__(self, param):
         self.param = param
-        self.appObjDict = []
 
         if os.getuid() != 0:
             sstr = "System"
@@ -27,6 +59,7 @@ class VccApps:
                 exec("from %s import %sObject" % (bn, sstr))
                 obj = eval("%sObject()" % (sstr))
                 if os.getuid() == 0:
+                    obj.is_system = True
                     obj._cmp_sync_etc_dir = _sys_cmp_etc_dir
                     obj._to_sync_etc_dir = _sys_to_sync_etc_dir
                     obj._from_sync_etc_dir = _sys_from_sync_etc_dir
@@ -34,6 +67,7 @@ class VccApps:
                     obj._to_sync_etc_files = _sys_to_sync_etc_files
                     obj._from_sync_etc_files = _sys_from_sync_etc_files
                 else:
+                    obj.is_system = False
                     obj._cmp_dir_in_home = _usr_cmp_dir_in_home
                     obj._to_sync_dir_in_home = _usr_to_sync_dir_in_home
                     obj._from_sync_dir_in_home = _usr_from_sync_dir_in_home
@@ -46,7 +80,7 @@ class VccApps:
                     obj._cmp_files_in_config = _usr_cmp_files_in_config
                     obj._to_sync_files_in_config = _usr_to_sync_files_in_config
                     obj._from_sync_files_in_config = _usr_from_sync_files_in_config
-                self.appObjDict[bn] = obj
+                self[bn] = obj
             except Exception as e:
                 print(e.__class__.__name__)     # fixme
             finally:
@@ -137,42 +171,42 @@ def _sys_from_sync_etc_files(obj, file_pattern, dataDir):
         VccUtil.forceDelete(dirname)
 
 
-def _usr_cmp_dir_in_home(obj, homeDir, dirname, dataDir):
+def _usr_cmp_dir_in_home(obj, dirname, dataDir):
     pass
 
 
-def _usr_to_sync_dir_in_home(obj, homeDir, dirname, dataDir):
+def _usr_to_sync_dir_in_home(obj, dirname, dataDir):
     pass
 
 
-def _usr_from_sync_dir_in_home(obj, homeDir, dirname, dataDir):
+def _usr_from_sync_dir_in_home(obj, dirname, dataDir):
     pass
 
 
-def _usr_cmp_files_in_home(obj, homeDir, file_pattern, dataDir):
+def _usr_cmp_files_in_home(obj, file_pattern, dataDir):
     pass
 
 
-def _usr_to_sync_files_in_home(obj, homeDir, file_pattern, dataDir):
+def _usr_to_sync_files_in_home(obj, file_pattern, dataDir):
     pass
 
 
-def _usr_from_sync_files_in_home(obj, homeDir, file_pattern, dataDir):
+def _usr_from_sync_files_in_home(obj, file_pattern, dataDir):
     pass
 
 
-def _usr_cmp_dir_in_config(obj, homeDir, dirname, dataDir):
+def _usr_cmp_dir_in_config(obj, dirname, dataDir):
     cfgDir = os.path.join(dataDir, "_config")
     targetDir = os.path.join(cfgDir, dirname.replace(".config", "_config"))
-    dirname = os.path.join(homeDir, dirname)
+    dirname = os.path.join(obj._home_dir, dirname)
 
     #fixme
 
 
-def _usr_to_sync_dir_in_config(obj, homeDir, dirname, dataDir):
+def _usr_to_sync_dir_in_config(obj, dirname, dataDir):
     cfgDir = os.path.join(dataDir, "_config")
     targetDir = os.path.join(cfgDir, dirname.replace(".config", "_config"))
-    dirname = os.path.join(homeDir, dirname)
+    dirname = os.path.join(obj._home_dir, dirname)
 
     if os.path.exists(dirname):
         VccUtil.forceDelete(targetDir)
@@ -183,11 +217,11 @@ def _usr_to_sync_dir_in_config(obj, homeDir, dirname, dataDir):
         VccUtil.deleteDirIfEmpty(cfgDir)
 
 
-def _usr_from_sync_dir_in_config(obj, homeDir, dirname, dataDir):
-    ocfgDir = os.path.join(homeDir, ".config")
+def _usr_from_sync_dir_in_config(obj, dirname, dataDir):
+    ocfgDir = os.path.join(obj._home_dir, ".config")
     cfgDir = os.path.join(dataDir, "_config")
     targetDir = os.path.join(cfgDir, dirname.replace(".config", "_config"))
-    dirname = os.path.join(homeDir, dirname)
+    dirname = os.path.join(obj._home_dir, dirname)
 
     if os.path.exists(targetDir):
         VccUtil.ensureDir(ocfgDir)
@@ -196,13 +230,13 @@ def _usr_from_sync_dir_in_config(obj, homeDir, dirname, dataDir):
         VccUtil.forceDelete(dirname)
 
 
-def _usr_cmp_files_in_config(obj, homeDir, file_pattern, dataDir):
+def _usr_cmp_files_in_config(obj, file_pattern, dataDir):
     pass
 
 
-def _usr_to_sync_files_in_config(obj, homeDir, file_pattern, dataDir):
+def _usr_to_sync_files_in_config(obj, file_pattern, dataDir):
     pass
 
 
-def _usr_from_sync_files_in_config(obj, homeDir, file_pattern, dataDir):
+def _usr_from_sync_files_in_config(obj, file_pattern, dataDir):
     pass

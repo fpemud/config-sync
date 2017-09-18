@@ -15,12 +15,15 @@ class SystemObject:
         assert False
 
     def compare(self, dataDir):
+        # returns True when equal
         assert False
 
     def convert_to(self, dataDir):
+        # system-configuration -> ncfs
         assert False
 
     def convert_from(self, dataDir):
+        # ncfs -> system-configuration
         assert False
 
     ## conveninent functions for you ##########################################
@@ -62,61 +65,68 @@ class UserObject:
         # relative path based on ncfs data directory
         assert False
 
-    def compare(self, homeDir, dataDir):
+    def compare(self, dataDir):
+        # returns True when equal
         assert False
 
-    def convert_to(self, homeDir, dataDir):
+    def convert_to(self, dataDir):
+        # user-configuration -> ncfs
         assert False
 
-    def convert_from(self, homeDir, dataDir):
+    def convert_from(self, dataDir):
+        # ncfs -> user-configuration
         assert False
 
     ## conveninent functions for you ##########################################
 
-    def _cmp_dir_in_home(self, homeDir, dirname, dataDir):
+    @property
+    def _home_dir(self):
+        pass
+
+    def _cmp_dir_in_home(self, dirname, dataDir):
         # dirname is relative path based on "~"
         pass
 
-    def _to_sync_dir_in_home(self, homeDir, dirname, dataDir):
+    def _to_sync_dir_in_home(self, dirname, dataDir):
         # dirname is relative path based on "~"
         pass
 
-    def _from_sync_dir_in_home(self, homeDir, dirname, dataDir):
+    def _from_sync_dir_in_home(self, dirname, dataDir):
         # dirname is relative path based on "~"
         pass
 
-    def _cmp_files_in_home(self, homeDir, file_pattern, dataDir):
+    def _cmp_files_in_home(self, file_pattern, dataDir):
         # file_pattern is relative path based on "~"
         pass
 
-    def _to_sync_files_in_home(self, homeDir, file_pattern, dataDir):
+    def _to_sync_files_in_home(self, file_pattern, dataDir):
         # file_pattern is relative path based on "~"
         pass
 
-    def _from_sync_files_in_home(self, homeDir, file_pattern, dataDir):
+    def _from_sync_files_in_home(self, file_pattern, dataDir):
         # file_pattern is relative path based on "~"
         pass
 
-    def _cmp_dir_in_config(self, homeDir, dirname, dataDir):
+    def _cmp_dir_in_config(self, dirname, dataDir):
         # dirname is relative path based on "~", prefixed with "~/.config"
         pass
 
-    def _to_sync_dir_in_config(self, homeDir, dirname, dataDir):
+    def _to_sync_dir_in_config(self, dirname, dataDir):
         # dirname is relative path based on "~", prefixed with "~/.config"
         pass
 
-    def _from_sync_dir_in_config(self, homeDir, dirname, dataDir):
+    def _from_sync_dir_in_config(self, dirname, dataDir):
         # dirname is relative path based on "~", prefixed with "~/.config"
         pass
 
-    def _cmp_files_in_config(self, homeDir, file_pattern, dataDir):
+    def _cmp_files_in_config(self, file_pattern, dataDir):
         # file_pattern is relative path based on "~", prefixed with "~/.config"
         pass
 
-    def _to_sync_files_in_config(self, homeDir, file_pattern, dataDir):
+    def _to_sync_files_in_config(self, file_pattern, dataDir):
         # file_pattern is relative path based on "~", prefixed with "~/.config"
         pass
 
-    def _from_sync_files_in_config(self, homeDir, file_pattern, dataDir):
+    def _from_sync_files_in_config(self, file_pattern, dataDir):
         # file_pattern is relative path based on "~", prefixed with "~/.config"
         pass

@@ -551,7 +551,7 @@ class TaskRunner(threading.Thread):
 
 class FileMonitor:
 
-    # It suckss that there's no way to get the PID of the process who modifies the target file or directory.
+    # It sucks that there's no way to get the PID of the process who modifies the target file or directory.
     # inotify does not support it, fanotify is not fully implemented yet.
 
     def __init__(self, pattern_list, change_callback):
@@ -569,6 +569,7 @@ class FileMonitor:
         assert self.monitorList == []
 
     def start(self):
+        assert self.monitorList == []
         for pattern in pattern_list:
             self._monitorPattern(pattern)
 
@@ -600,18 +601,18 @@ class FileMonitor:
                 monitor = Gio.File.new_for_path(fn).monitor_directory(0, None)
                 monitor.connect("changed", self._onChange)
                 self.monitorList.append(monitor)
-            self.change_callback(fn)
+            self.change_callback(self, fn)
             return
 
         if event_type == Gio.FileMonitorEvent.DELETED:
             fn = file.get_path()
             self.monitorList.remove(monitor)
-            self.change_callback(fn)
+            self.change_callback(self, fn)
             return
 
         if event_type in [Gio.FileMonitorEvent.CHANGES_DONE_HINT, Gio.FileMonitorEvent.ATTRIBUTE_CHANGED]:
             fn = file.get_path()
-            self.change_callback(fn)
+            self.change_callback(self, fn)
             return
 
     def _isTrival(self, pathname):

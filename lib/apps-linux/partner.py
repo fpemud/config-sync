@@ -36,8 +36,8 @@ class UserObject:
             "_config/partner"
         ]
 
-    def convert_to(self, homeDir, dataDir):
-        self._to_sync_dir_in_config(homeDir, ".config/partner", dataDir)
+    def convert_to(self, dataDir):
+        self._to_sync_dir_in_config(".config/partner", dataDir)
 
-    def convert_from(self, homeDir, dataDir):
-        self._from_sync_dir_in_config(homeDir, ".config/partner", dataDir)
+    def convert_from(self, dataDir):
+        self._from_sync_dir_in_config(".config/partner", dataDir)
