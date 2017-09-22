@@ -9,39 +9,6 @@ from vcc_util import VccUtil
 from vcc_util import FileCmp
 
 
-
-
-class VccUserLock:
-
-    def __init__(self, param, lock_callback, unlock_callback):
-        self.param = param
-        self.lock_callback = lock_callback
-        self.unlock_callback = unlock_callback
-
-
-
-
-
-    def get_value(self):
-        self.locked
-
-    def dispose(self):
-        self.monitor.cancel()
-
-    def _on_change(self, monitor, file, other_file, event_type):
-        if event_type == Gio.FileMonitorEvent.CREATED:
-            self.locked = True
-            self.lock_callback()
-            return
-
-        if event_type == Gio.FileMonitorEvent.DELETED:
-            self.locked = False
-            self.unlock_callback()
-            return
-
-        assert False
-
-
 class VccAppDict(dict):
 
     def __init__(self, param):
@@ -244,42 +211,63 @@ class VccAppDict(dict):
 
 class VccApiServer:
 
-    def __init__(self, param, filename):
-        self.param = param
+    def __init__(self, pObj, filename):
+        self.pObj = pObj
 
         self.serverListener = Gio.SocketListener.new()
         addr = Gio.UnixSocketAddress.new(filename)
-        self.serverListener.add_address(addr, Gio.SocketType.STREAM, Gio.SocketProtocol.TCP)
+        self.serverListener.add_address(addr, Gio.SocketType.STREAM, Gio.SocketProtocol.DEFAULT)
         self.serverListener.accept_async(None, self._on_accept)
 
         self.sprocList = []
 
     def dispose(self):
         self.serverListener.close()
+        os.unlink(filename)
         for sproc in self.sprocList:
             sproc.close(immediate=True)
 
     def _on_accept(self, source_object, res):
         conn, dummy = source_object.accept_finish(res)
-        peer_ip = conn.get_remote_address().get_address().to_string()
-
-        bFound = False
-        for p in self.param.managers["lan"].vpnsPluginList:
-            netobj = ipaddress.IPv4Network(p.get_bridge().get_prefix()[0] + "/" + p.get_bridge().get_prefix()[1])
-            if ipaddress.IPv4Address(peer_ip) in netobj:
-                bFound = True
-                break
-        if not bFound:
-            self.logger.error("CASCADE-API client %s rejected, invalid client IP address." % (peer_ip))
-            conn.close()
-            return
-
-        for sproc in self.sprocList:
-            if sproc.peer_ip == peer_ip:
-                self.logger.error("CASCADE-API client %s rejected, multiple channel per IP address." % (peer_ip))
-                conn.close()
-                return
-
-        self.sprocList.append(_ApiServerProcessor(self.pObj, self, conn))
+        self.sprocList.append(VccApiServerProcessor(self.pObj, self, conn))
         self.serverListener.accept_async(None, self._on_accept)
 
+
+class VccApiServerProcessor(msghole.EndPoint):
+
+    def __init__(self, pObj, serverObj, conn):
+        super().__init__()
+
+        self.pObj = pObj
+        self.serverObj = serverObj
+        self.bPause = False
+        super().set_iostream_and_start(conn)
+
+    def on_error(self, e):
+        if isinstance(e, msghole.PeerCloseError):
+            return
+        print("Error occured in server processor")
+
+    def on_close(self):
+        self.bPause = False
+        self.pObj.on_resume()
+        self.serverObj.sprocList.remove(self)
+
+    def on_command_get_status(self, data, return_callback, error_callback):
+        data2 = dict()
+        return_callback(data2)
+
+    def on_command_trigger(self, data, return_callback, error_callback):
+        if self.bPause:
+            error_callback("Paused")
+            return
+        self.pObj.on_trigger()
+        return_callback(None)
+
+    def on_notification_pause(self, data):
+        self.pObj.on_pause()
+        self.bPause = True
+
+    def on_notification_resume(self, data):
+        self.bPause = False
+        self.pObj.on_resume()

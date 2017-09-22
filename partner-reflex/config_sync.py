@@ -39,46 +39,63 @@ class _PluginObject:
     def on_init(self):
         self.param = VccParam()
 
-        self.appObjDict = []
-
-
-
         if not os.path.exists(self.param.dataDir):
             os.makedirs(self.param.dataDir)
 
-
-
-
-
-
-        self.ulock = VccUserLock(self.param, self.on_user_lock, self.on_user_unlock)
-
-        self.localRepo = VccLocalRepoManager(self.param)
-        self.localRepo.bringRepoOnline()
+        self.localRepo = VccLocalRepo(self.param,
+                                      lambda: self.on_repo_change("localhost"))
 
         self.remoteRepoDict = dict()
         for peername in os.listdir(self.param.dataDir):
-            self.remoteRepoDict[peername] = VccRemoteRepo(self.param, self.param.dataDir, peername)
+            if peername != "localhost":
+                self.remoteRepoDict[peername] = VccRepo(self.param,
+                                                        peername,
+                                                        lambda: self.on_repo_change(peername))
+
+        self.apiServer = _ApiServer(self, "/tmp.socket")
+        self.bPause = False
 
     def on_fini(self):
-        self.localRepo.bringRepoOffline()
-        self.ulock.dispose()
+        self.apiServer.dispose()
+        for repoObj in self.remoteRepoDict.values():
+            repoObj.dispose()
+        self.localRepo.dispose()
 
     def on_peer_appear(self, peername, ip, uid):
-        pass
+        dict2 = self.remoteRepoDict.copy()
+        dict2[self.my_hostname] = self.localRepo
+
+        if peername not in self.remoteRepoDict:
+            self.remoteRepoDict[peername] = VccRepo(self.param,
+                                                    peername,
+                                                    lambda: self.on_repo_change(peername))
+
+        self.send_message_to_peer(peername, {"pull-request": dict2})
 
     def on_peer_disappear(self, peername):
         pass
 
     def on_receive_message_from_peer(self, peername, message):
-        jsonObj = json.loads(message)
+        if self.bPause:
+            return
 
-        if "pull-request" in jsonObj:
-            if jsonObj["repo-name"] == self.my_hostname:
-                repoObj = self.localRepo
-            else:
-                repoObj = self.remoteRepoDict[jsonObj["repo-name"]]
-            repoObj.pull_from(peername, self.peer_info[peername]["ip"], jsonObj["port"])
+        if "pull-request" in message:
+            for repo_name, port in message["pull-request"]:
+                if repo_name == self.my_hostname:
+                    self.localRepo.pull_from(peername, port)
+                elif repo_name in self.remoteRepoDict:
+                    self.remoteRepoDict[repo_name].pull_from(peername, port)
+            return
+
+        if "pull-request-needed" in message:
+            dict2 = dict()
+            for repo_name in message["pull-request-needed"]:
+                if repo_name == self.my_hostname:
+                    dict2[repo_name] = self.localRepo.start_server()
+                elif repo_name in self.remoteRepoDict:
+                    dict2[repo_name] = self.remoteRepoDict[repo_name].start_server()
+            if len(dict2) > 0:
+                self.send_message_to_peer(peername, {"pull-request": dict2})
             return
 
         assert False
@@ -90,55 +107,39 @@ class _PluginObject:
         else:
             port = self.remoteRepoDict[repo_name].start_server()
 
-        jsonObj = {
-            "pull-request": {
-                "repo-name": repo_name,
-                "port": port,
-            },
-        }
-        message = json.dumps(jsonObj)
         for pi in self.peer_info:
-            self.send_message_to_peer(pi["hostname"], message)
+            self.send_message_to_peer(pi["hostname"], {
+                "pull-request": {repo_name: port},
+            })
 
-    def on_user_lock(self):
+    def on_trigger(self):
         pass
 
-    def on_user_unlock(self):
-        pass
+    def on_pause(self):
+        assert not self.bPause
+        self.bPause = True
+
+
+    def on_resume(self):
+        assert self.bPause
+        self.bPause = False
 
 
 
-    def _load_app_data(self):
-        for fn in os.listdir(self.param.libAppsDir):
-            if not fn.endswith(".py"):
-                continue
-            bn = os.path.basename(fn)[:-3]
-            sys.path.append(self.param.libAppsDir)
-            try:
-                exec("from %s import %sObject" % (bn, sstr))
-                obj = eval("%sObject()" % (sstr))
-                if os.getuid() == 0:
-                    obj._cmp_sync_etc_dir = _sys_cmp_etc_dir
-                    obj._to_sync_etc_dir = _sys_to_sync_etc_dir
-                    obj._from_sync_etc_dir = _sys_from_sync_etc_dir
-                    obj._cmp_etc_files = _sys_cmp_etc_files
-                    obj._to_sync_etc_files = _sys_to_sync_etc_files
-                    obj._from_sync_etc_files = _sys_from_sync_etc_files
-                else:
-                    obj._cmp_dir_in_home = _usr_cmp_dir_in_home
-                    obj._to_sync_dir_in_home = _usr_to_sync_dir_in_home
-                    obj._from_sync_dir_in_home = _usr_from_sync_dir_in_home
-                    obj._cmp_files_in_home = _usr_cmp_files_in_home
-                    obj._to_sync_files_in_home = _usr_to_sync_files_in_home
-                    obj._from_sync_files_in_home = _usr_from_sync_files_in_home
-                    obj._cmp_dir_in_config = _usr_cmp_dir_in_config
-                    obj._to_sync_dir_in_config = _usr_to_sync_dir_in_config
-                    obj._from_sync_dir_in_config = _usr_from_sync_dir_in_config
-                    obj._cmp_files_in_config = _usr_cmp_files_in_config
-                    obj._to_sync_files_in_config = _usr_to_sync_files_in_config
-                    obj._from_sync_files_in_config = _usr_from_sync_files_in_config
-                self.appObjDict[bn] = obj
-            except Exception as e:
-                print(e.__class__.__name__)     # fixme
-            finally:
-                sys.path.remove(self.param.libAppsDir)
+
+
+
+
+
+
+
+
+
+    def _send_pull_request_needed(self, peername, repo_name):
+        message = {
+            "pull-request-needed": {
+                "repo-name": repo_name,
+            }
+        }
+        self.send_message_to_peer(peername, message)
+

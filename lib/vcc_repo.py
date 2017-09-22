@@ -7,10 +7,9 @@ from vcc_util import VccUtil
 
 class VccRepo:
 
-    def __init__(self, name, dir_name, change_callback):
-        assert os.path.exists(dir_name)
+    def __init__(self, param, name, change_callback):
         self.name = name
-        self.dirName = dir_name
+        self.dirName = os.path.join(self.param.dataDir, name)
         self.changeCallback = change_callback
 
         _createRepoIfNotExist(self.dirName)
@@ -37,8 +36,8 @@ class VccRepo:
         _callGit(self.dirName, "add .", "stdout")
         _callGit(self.dirName, "commit -a -m \"%s\"" % ("none"), "stdout")
 
-    def pull_from(self, peer_name, ip, port):
-        self.pullThread.add_task(peer_name, ip, port)
+    def pull_from(self, peer_name, port):
+        self.pullThread.add_task(peer_name, port)
 
     def start_server(self):
         try:
@@ -90,10 +89,10 @@ class VccRepo:
         self._stopServer()
         return False
 
-    def _onPullTaskRun(self, dummy, peer_name, ip, port):
-        _callGit(self.dir_name, "remote add peer git://%s:%d" % (ip, port), "stdout")
+    def _onPullTaskRun(self, dummy, peer_name, port):
+        _callGit(self.dir_name, "remote add peer git://%s:%d" % (peer_name, port), "stdout")
         while True:
-            rc, out = _callGit(self.repoObj.dir_name, "pull peer master", "retcode+stdout")
+            rc, out = _callGit(self.repoObj.dir_name, "pull peer master -–allow-unrelated-histories", "retcode+stdout")
             if rc == 0:
                 break
             print(out)            # fixme
@@ -121,7 +120,7 @@ class VccLocalRepo(VccRepo):
             for obj in self.appObjDict.values():
                 obj.convert_to(self.myDataDir)
 
-        super().__init__("localhost", self.myDataDir, change_callback)
+        super().__init__("localhost", change_callback)
 
         self.mDictCfg = dict()                      # dict<app-name, monitor-object>
         self.mDictNcfs = dict()                     # dict<app-name, monitor-object>
